@@ -15,6 +15,8 @@ RUN /tmp/install_compiler.sh
 RUN pip install -U setuptools ledgerblue>=0.1.21
 RUN adduser -u 1000 test
 
+RUN git clone https://github.com/LedgerHQ/nanos-secure-sdk /opt/bolos/nanos-secure-sdk
+
 #VOLUME
 RUN echo "export BOLOS_SDK=/opt/bolos/nanos-secure-sdk" >> ~/.bashrc
 
