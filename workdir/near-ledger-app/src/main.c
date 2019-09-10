@@ -211,7 +211,7 @@ static const bagl_element_t bagl_ui_idle_nanos[] = {
     {
         {BAGL_LABELINE, 0x02, 0, 12, 128, 11, 0, 0, 0, 0xFFFFFF, 0x000000,
          BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-        "Waiting for message",
+        "Sendeth message",
         0,
         0,
         0,
