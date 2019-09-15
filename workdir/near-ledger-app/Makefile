@@ -22,26 +22,47 @@ include $(BOLOS_SDK)/Makefile.defines
 
 # Main app configuration
 
-APPNAME = "Sample Sign"
-APPVERSION = 1.0.0
-APP_LOAD_PARAMS = --appFlags 0x00 $(COMMON_LOAD_PARAMS)
+APPVERSION_M=1
+APPVERSION_N=0
+APPVERSION_P=0
+
+APPNAME = "Waves"
+APPVERSION = $(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
+ifeq ($(TARGET_NAME),TARGET_BLUE)
+ICONNAME = blue_app_waves.gif
+else
+ICONNAME = nanos_app_waves.gif
+endif
+
+APP_LOAD_PARAMS = --appFlags 0x40 --path "44'/5741564'" --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS)
 
 # Build configuration
 
-APP_SOURCE_PATH += src
-SDK_SOURCE_PATH += lib_stusb lib_stusb_impl
+### variables processed by the common makefile.rules of the SDK to grab source files and include dirs
+APP_SOURCE_PATH  += src
+SDK_SOURCE_PATH  += lib_stusb #qrcode
+#use the SDK U2F+HIDGEN USB profile
+SDK_SOURCE_PATH  += lib_u2f lib_stusb_impl
 
 DEFINES += APPVERSION=\"$(APPVERSION)\"
 
-DEFINES += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=128
-DEFINES += HAVE_BAGL
-DEFINES += HAVE_SPRINTF
-#DEFINES += PRINTF\(...\)=
-DEFINES += HAVE_PRINTF PRINTF=screen_printf
+#for debug only
+#DEFINES   += HAVE_PRINTF PRINTF=screen_printf
+DEFINES   += PRINTF\(...\)=
+DEFINES += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=128 HAVE_BAGL
+DEFINES += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=7 IO_HID_EP_LENGTH=64 HAVE_USB_APDU TCS_LOADER_PATCH_VERSION=0
+DEFINES += LEDGER_MAJOR_VERSION=$(APPVERSION_M) LEDGER_MINOR_VERSION=$(APPVERSION_N) LEDGER_PATCH_VERSION=$(APPVERSION_P)
 
-DEFINES += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=7 IO_HID_EP_LENGTH=64 HAVE_USB_APDU
+DEFINES += BLAKE_SDK
 
-DEFINES += CX_COMPLIANCE_141
+# U2F Support
+DEFINES   += HAVE_U2F
+DEFINES   += HAVE_IO_U2F U2F_PROXY_MAGIC=\"WAVES\"
+DEFINES   += USB_SEGMENT_SIZE=64
+
+DEFINES   += UNUSED\(x\)=\(void\)x
+DEFINES   += APPVERSION=\"$(APPVERSION)\"
+DEFINES   += MAX_DATA_SIZE=650
 
 # Compiler, assembler, and linker
 
@@ -52,11 +73,9 @@ GCCPATH := $(BOLOS_ENV)/gcc-arm-none-eabi-5_3-2016q1/bin/
 else
 $(info BOLOS_ENV is not set: falling back to CLANGPATH and GCCPATH)
 endif
-
 ifeq ($(CLANGPATH),)
 $(info CLANGPATH is not set: clang will be used from PATH)
 endif
-
 ifeq ($(GCCPATH),)
 $(info GCCPATH is not set: arm-none-eabi-* will be used from PATH)
 endif
@@ -77,12 +96,21 @@ all: default
 
 load: all
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
-load-only: all
+
+load-only: 
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 
 delete:
 	python -m ledgerblue.deleteApp $(COMMON_DELETE_PARAMS)
 
+# Import rules to build glyphs
+# NOTE: src/glyphs.* should be removed to recompile it. Or just use 'clean'.
+include $(BOLOS_SDK)/Makefile.glyphs
+
 # Import generic rules from the SDK
 
 include $(BOLOS_SDK)/Makefile.rules
+
+
+listvariants:
+	@echo VARIANTS COIN waves

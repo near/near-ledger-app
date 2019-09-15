@@ -1,6 +1,8 @@
 /*******************************************************************************
-*   Ledger Blue
-*   (c) 2016 Ledger
+*   Waves platform Wallet App for Nano Ledger S. Updated By Waves community.
+*   Copyright (c) 2017-2018 Sergey Tolmachev (Tolsi) <tolsi.ru@gmail.com>
+* 
+*   Based on Sample code provided and (c) 2016 Ledger and 2017-2018 Jake B. (Burstcoin)
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -15,444 +17,32 @@
 *  limitations under the License.
 ********************************************************************************/
 
-#include "os.h"
-#include "cx.h"
+#include <stdbool.h>
 
+#include "main.h"
+#include "crypto/waves.h"
+#include "crypto/ledger_crypto.h"
 #include "os_io_seproxyhal.h"
 
+// Ledger Stuff
+#include "ui/ui.h"
+#include "os.h"
+#include "cx.h"
+#include "os_io_seproxyhal.h"
+
+// Temporary area to sore stuff and reuse the same memory
+tmpContext_t tmp_ctx;
+uiContext_t ui_context;
+
+// Non-volatile storage for the wallet app's stuff
+WIDE internal_storage_t N_storage_real;
+
+// SPI Buffer for io_event
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
-static unsigned int current_text_pos; // parsing cursor in the text to display
-static unsigned int text_y;           // current location of the displayed text
-static unsigned char hashTainted;     // notification to restart the hash
-
-// UI currently displayed
-enum UI_STATE { UI_IDLE, UI_TEXT, UI_APPROVAL };
-
-enum UI_STATE uiState;
-
-ux_state_t ux;
-
-static const bagl_element_t *io_seproxyhal_touch_exit(const bagl_element_t *e);
-static const bagl_element_t*
-io_seproxyhal_touch_approve(const bagl_element_t *e);
-static const bagl_element_t *io_seproxyhal_touch_deny(const bagl_element_t *e);
-
-static void ui_idle(void);
-static unsigned char display_text_part(void);
-static void ui_text(void);
-static void ui_approval(void);
-
-#define MAX_CHARS_PER_LINE 49
-#define DEFAULT_FONT BAGL_FONT_OPEN_SANS_LIGHT_16px | BAGL_FONT_ALIGNMENT_LEFT
-#define TEXT_HEIGHT 15
-#define TEXT_SPACE 4
-
-#define CLA 0x80
-#define INS_SIGN 0x02
-#define INS_GET_PUBLIC_KEY 0x04
-#define P1_LAST 0x80
-#define P1_MORE 0x00
-
-// private key in flash. const and N_ variable name are mandatory here
-static const cx_ecfp_private_key_t N_privateKey;
-// initialization marker in flash. const and N_ variable name are mandatory here
-static const unsigned char N_initialized;
-
-static char lineBuffer[50];
-static cx_sha256_t hash;
-
-#ifdef TARGET_BLUE
-
-// UI to approve or deny the signature proposal
-static const bagl_element_t const bagl_ui_approval_blue[] = {
-    // {
-    //     {type, userid, x, y, width, height, stroke, radius, fill, fgcolor,
-    //      bgcolor, font_id, icon_id},
-    //     text,
-    //     touch_area_brim,
-    //     overfgcolor,
-    //     overbgcolor,
-    //     tap,
-    //     out,
-    //     over,
-    // },
-    {
-        {BAGL_BUTTON | BAGL_FLAG_TOUCHABLE, 0x00, 190, 215, 120, 40, 0, 6,
-         BAGL_FILL, 0x41ccb4, 0xF9F9F9, BAGL_FONT_OPEN_SANS_LIGHT_14px |
-         BAGL_FONT_ALIGNMENT_CENTER | BAGL_FONT_ALIGNMENT_MIDDLE, 0},
-        "Deny",
-        0,
-        0x37ae99,
-        0xF9F9F9,
-        io_seproxyhal_touch_deny,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_BUTTON | BAGL_FLAG_TOUCHABLE, 0x00, 190, 265, 120, 40, 0, 6,
-         BAGL_FILL, 0x41ccb4, 0xF9F9F9, BAGL_FONT_OPEN_SANS_LIGHT_14px |
-         BAGL_FONT_ALIGNMENT_CENTER | BAGL_FONT_ALIGNMENT_MIDDLE, 0},
-        "Approve",
-        0,
-        0x37ae99,
-        0xF9F9F9,
-        io_seproxyhal_touch_approve,
-        NULL,
-        NULL,
-    },
-};
-
-static unsigned int
-bagl_ui_approval_blue_button(unsigned int button_mask,
-                             unsigned int button_mask_counter) {
-    return 0;
-}
-
-// UI displayed when no signature proposal has been received
-static const bagl_element_t bagl_ui_idle_blue[] = {
-    // {
-    //     {type, userid, x, y, width, height, stroke, radius, fill, fgcolor,
-    //      bgcolor, font_id, icon_id},
-    //     text,
-    //     touch_area_brim,
-    //     overfgcolor,
-    //     overbgcolor,
-    //     tap,
-    //     out,
-    //     over,
-    // },
-    {
-        {BAGL_RECTANGLE, 0x00, 0, 60, 320, 420, 0, 0, BAGL_FILL, 0xf9f9f9,
-         0xf9f9f9, 0, 0},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_RECTANGLE, 0x00, 0, 0, 320, 60, 0, 0, BAGL_FILL, 0x1d2028,
-         0x1d2028, 0, 0},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_LABEL, 0x00, 20, 0, 320, 60, 0, 0, BAGL_FILL, 0xFFFFFF, 0x1d2028,
-         BAGL_FONT_OPEN_SANS_LIGHT_14px | BAGL_FONT_ALIGNMENT_MIDDLE, 0},
-        "Sample Sign",
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_BUTTON | BAGL_FLAG_TOUCHABLE, 0x00, 190, 215, 120, 40, 0, 6,
-         BAGL_FILL, 0x41ccb4, 0xF9F9F9, BAGL_FONT_OPEN_SANS_LIGHT_14px |
-         BAGL_FONT_ALIGNMENT_CENTER | BAGL_FONT_ALIGNMENT_MIDDLE, 0},
-        "Exit",
-        0,
-        0x37ae99,
-        0xF9F9F9,
-        io_seproxyhal_touch_exit,
-        NULL,
-        NULL,
-    },
-};
-
-static unsigned int
-bagl_ui_idle_blue_button(unsigned int button_mask,
-                         unsigned int button_mask_counter) {
-    return 0;
-}
-
-static bagl_element_t bagl_ui_text[1];
-
-static unsigned int
-bagl_ui_text_button(unsigned int button_mask,
-                    unsigned int button_mask_counter) {
-    return 0;
-}
-
-#else
-
-static const bagl_element_t bagl_ui_idle_nanos[] = {
-    // {
-    //     {type, userid, x, y, width, height, stroke, radius, fill, fgcolor,
-    //      bgcolor, font_id, icon_id},
-    //     text,
-    //     touch_area_brim,
-    //     overfgcolor,
-    //     overbgcolor,
-    //     tap,
-    //     out,
-    //     over,
-    // },
-    {
-        {BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000,
-         0xFFFFFF, 0, 0},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_LABELINE, 0x02, 0, 12, 128, 11, 0, 0, 0, 0xFFFFFF, 0x000000,
-         BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-        "Sendeth message",
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-         BAGL_GLYPH_ICON_CROSS},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-};
-
-static unsigned int
-bagl_ui_idle_nanos_button(unsigned int button_mask,
-                          unsigned int button_mask_counter) {
-    switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        io_seproxyhal_touch_exit(NULL);
-        break;
-    }
-
-    return 0;
-}
-
-static const bagl_element_t bagl_ui_approval_nanos[] = {
-    // {
-    //     {type, userid, x, y, width, height, stroke, radius, fill, fgcolor,
-    //      bgcolor, font_id, icon_id},
-    //     text,
-    //     touch_area_brim,
-    //     overfgcolor,
-    //     overbgcolor,
-    //     tap,
-    //     out,
-    //     over,
-    // },
-    {
-        {BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000,
-         0xFFFFFF, 0, 0},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_LABELINE, 0x02, 0, 12, 128, 11, 0, 0, 0, 0xFFFFFF, 0x000000,
-         BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-        "Sign message",
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-         BAGL_GLYPH_ICON_CROSS},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-         BAGL_GLYPH_ICON_CHECK},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-};
-
-static unsigned int
-bagl_ui_approval_nanos_button(unsigned int button_mask,
-                              unsigned int button_mask_counter) {
-    switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        PRINTF("touch_approve");
-        io_seproxyhal_touch_approve(NULL);
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        PRINTF("touch_deny");
-        io_seproxyhal_touch_deny(NULL);
-        break;
-    }
-    return 0;
-}
-
-static const bagl_element_t bagl_ui_text_review_nanos[] = {
-    // {
-    //     {type, userid, x, y, width, height, stroke, radius, fill, fgcolor,
-    //      bgcolor, font_id, icon_id},
-    //     text,
-    //     touch_area_brim,
-    //     overfgcolor,
-    //     overbgcolor,
-    //     tap,
-    //     out,
-    //     over,
-    // },
-    {
-        {BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000,
-         0xFFFFFF, 0, 0},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_LABELINE, 0x02, 0, 12, 128, 11, 0, 0, 0, 0xFFFFFF, 0x000000,
-         BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-        "Verify text",
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_LABELINE, 0x02, 23, 26, 82, 11, 0x80 | 10, 0, 0, 0xFFFFFF,
-         0x000000, BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26},
-        lineBuffer,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-         BAGL_GLYPH_ICON_CROSS},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
-        {BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-         BAGL_GLYPH_ICON_CHECK},
-        NULL,
-        0,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-    },
-};
-
-static unsigned int
-bagl_ui_text_review_nanos_button(unsigned int button_mask,
-                                 unsigned int button_mask_counter) {
-    switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        if (!display_text_part()) {
-            ui_approval();
-        } else {
-            UX_REDISPLAY();
-        }
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        io_seproxyhal_touch_deny(NULL);
-        break;
-    }
-    return 0;
-}
-
+#if !defined(TARGET_NANOS) && !defined(TARGET_BLUE)
+#error This application only supports the Ledger Nano S and the Ledger Blue
 #endif
-
-static const bagl_element_t *io_seproxyhal_touch_exit(const bagl_element_t *e) {
-    // Go back to the dashboard
-    os_sched_exit(0);
-    return NULL; // do not redraw the widget
-}
-
-static const bagl_element_t*
-io_seproxyhal_touch_approve(const bagl_element_t *e) {
-    unsigned int tx = 0;
-    // Update the hash
-    cx_hash(&hash.header, 0, G_io_apdu_buffer + 5, G_io_apdu_buffer[4], NULL);
-    if (G_io_apdu_buffer[2] == P1_LAST) {
-        // Hash is finalized, send back the signature
-        unsigned char result[32];
-        cx_hash(&hash.header, CX_LAST, G_io_apdu_buffer, 0, result);
-        //PRINTF("hash: %.*h", 32, result);
-        PRINTF("?\n");
-        tx = cx_ecdsa_sign((void*) &N_privateKey, CX_RND_RFC6979 | CX_LAST,
-                           CX_SHA256, result, sizeof(result), G_io_apdu_buffer, NULL);
-        PRINTF("tx: %d", tx);
-        //PRINTF("sig %.*h", tx, result);
-        G_io_apdu_buffer[0] &= 0xF0; // discard the parity information
-        hashTainted = 1;
-    }
-    G_io_apdu_buffer[tx++] = 0x90;
-    G_io_apdu_buffer[tx++] = 0x00;
-    // Send back the response, do not restart the event loop
-    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, tx);
-    // Display back the original UX
-    ui_idle();
-    return 0; // do not redraw the widget
-}
-
-static const bagl_element_t *io_seproxyhal_touch_deny(const bagl_element_t *e) {
-    hashTainted = 1;
-    G_io_apdu_buffer[0] = 0x69;
-    G_io_apdu_buffer[1] = 0x85;
-    // Send back the response, do not restart the event loop
-    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
-    // Display back the original UX
-    ui_idle();
-    return 0; // do not redraw the widget
-}
 
 unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
     switch (channel & ~(IO_FLAGS)) {
@@ -480,11 +70,214 @@ unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
     return 0;
 }
 
-static void sample_main(void) {
+uint32_t deserialize_uint32_t(unsigned char *buffer)
+{
+    uint32_t value = 0;
+
+    value |= buffer[0] << 24;
+    value |= buffer[1] << 16;
+    value |= buffer[2] << 8;
+    value |= buffer[3];
+    return value;
+
+}
+
+// 20 bytes total
+void read_path_from_bytes(unsigned char *buffer, uint32_t *path) {
+    path[0] = deserialize_uint32_t(buffer);
+    path[1] = deserialize_uint32_t(buffer + 4);
+    path[2] = deserialize_uint32_t(buffer + 8);
+    path[3] = deserialize_uint32_t(buffer + 12);
+    path[4] = deserialize_uint32_t(buffer + 16);
+}
+
+// Handle a signing request -- called both from the main apdu loop as well as from
+// the button handler after the user verifies the transaction.
+void add_chunk_data() {
+    // if this is a first chunk
+    if (tmp_ctx.signing_context.buffer_used == 0) {
+        // then there is the bip32 path in the first chunk - first 20 bytes of data
+        read_path_from_bytes(G_io_apdu_buffer + 5, (uint32_t *) tmp_ctx.signing_context.bip32);
+
+        // 21th byte - amount decimals
+        tmp_ctx.signing_context.amount_decimals = G_io_apdu_buffer[25];
+        // 22th byte - fee decimals
+        tmp_ctx.signing_context.fee_decimals = G_io_apdu_buffer[26];
+
+        // 23 byte - data type
+        tmp_ctx.signing_context.data_type = G_io_apdu_buffer[27];
+        // 24 byte - data version
+        tmp_ctx.signing_context.data_version = G_io_apdu_buffer[28];
+
+        // Update the other data from this segment
+        int data_size = G_io_apdu_buffer[4] - 24;
+        os_memmove((char *) tmp_ctx.signing_context.buffer, &G_io_apdu_buffer[29], data_size);
+        tmp_ctx.signing_context.buffer_used += data_size;
+    } else {
+        // else update the data from entire segment.
+        int data_size = G_io_apdu_buffer[4];
+        if (tmp_ctx.signing_context.buffer_used + data_size > MAX_DATA_SIZE) {
+            THROW(SW_BUFFER_OVERFLOW);
+        }
+        os_memmove((char *) &tmp_ctx.signing_context.buffer[tmp_ctx.signing_context.buffer_used], &G_io_apdu_buffer[5], data_size);
+        tmp_ctx.signing_context.buffer_used += data_size;
+    }
+}
+
+// like https://github.com/lenondupe/ledger-app-stellar/blob/master/src/main.c#L1784
+uint32_t set_result_sign() {
+    cx_ecfp_public_key_t public_key;
+    cx_ecfp_private_key_t private_key;
+    get_keypair_by_path((uint32_t *) tmp_ctx.signing_context.bip32, &public_key, &private_key);
+
+    public_key_le_to_be(&public_key);
+
+    uint8_t signature[64];
+    waves_message_sign(&private_key, public_key.W, (unsigned char *) tmp_ctx.signing_context.buffer, tmp_ctx.signing_context.buffer_used, signature);
+
+    os_memmove((char *) G_io_apdu_buffer, signature, sizeof(signature));
+
+    // reset all private stuff
+    os_memset(&private_key, 0, sizeof(cx_ecfp_private_key_t));
+    os_memset(&public_key, 0, sizeof(cx_ecfp_public_key_t));
+
+    return 64;
+}
+
+uint32_t set_result_get_address() {
+    os_memmove((char *) G_io_apdu_buffer, (char *) tmp_ctx.address_context.public_key, 32);
+    os_memmove((char *) G_io_apdu_buffer + 32, (char *) tmp_ctx.address_context.address, 35);
+    return 67;
+}
+
+uint32_t set_result_get_app_configuration() {
+  G_io_apdu_buffer[0] = LEDGER_MAJOR_VERSION;
+  G_io_apdu_buffer[1] = LEDGER_MINOR_VERSION;
+  G_io_apdu_buffer[2] = LEDGER_PATCH_VERSION;
+  return 3;
+}
+
+// Called by both the U2F and the standard communications channel
+void handle_apdu(volatile unsigned int *flags, volatile unsigned int *tx, volatile unsigned int rx) {
+    unsigned short sw = 0;
+    BEGIN_TRY {
+        TRY {
+
+            if (os_global_pin_is_validated() == 0) {
+                THROW(SW_DEVICE_IS_LOCKED);
+            }
+            
+            if (G_io_apdu_buffer[0] != CLA) {
+                THROW(SW_CLA_NOT_SUPPORTED);
+            }
+
+            switch (G_io_apdu_buffer[1]) {
+            case INS_SIGN: {
+                if (G_io_apdu_buffer[4] != rx - 5) {
+                    // the length of the APDU should match what's in the 5-byte header.
+                    // If not fail.  Don't want to buffer overrun or anything.
+                    THROW(SW_CONDITIONS_NOT_SATISFIED);
+                }
+                if ((G_io_apdu_buffer[2] != P1_MORE) &&
+                    (G_io_apdu_buffer[2] != P1_LAST)) {
+                    THROW(SW_INCORRECT_P1_P2);
+                }
+
+                if (G_io_apdu_buffer[2] == P1_LAST) {
+                    tmp_ctx.signing_context.network_byte = G_io_apdu_buffer[3];
+                    add_chunk_data();
+                    menu_sign_init();
+                    *flags |= IO_ASYNCH_REPLY;
+                } else {
+                    add_chunk_data();
+                    THROW(SW_OK);
+                }
+
+            } break;
+
+            case INS_GET_PUBLIC_KEY: {
+                if (G_io_apdu_buffer[4] != rx - 5 || G_io_apdu_buffer[4] != 20) {
+                    // the length of the APDU should match what's in the 5-byte header.
+                    // If not fail.  Don't want to buffer overrun or anything.
+                    THROW(SW_CONDITIONS_NOT_SATISFIED);
+                }
+
+                init_context();
+
+                // Get the public key and return it.
+                cx_ecfp_public_key_t public_key;
+
+                uint32_t path[5];
+                read_path_from_bytes(G_io_apdu_buffer + 5, path);
+
+                if (!get_curve25519_public_key_for_path(path, &public_key)) {
+                    THROW(INVALID_PARAMETER);
+                }
+
+                unsigned char address[35];
+                waves_public_key_to_address(public_key.W, G_io_apdu_buffer[3], address);
+
+                os_memmove((char *) tmp_ctx.address_context.public_key, public_key.W, 32);
+                os_memmove((char *) tmp_ctx.address_context.address, address, 35);
+                // term byte for string shown
+                tmp_ctx.address_context.address[35] = '\0';
+
+                if (G_io_apdu_buffer[2] == P1_NON_CONFIRM) {
+                    *tx = set_result_get_address();
+                    THROW(SW_OK);
+                }  else {
+                    *flags |= IO_ASYNCH_REPLY;
+                    menu_address_init();
+                }
+            } break;
+
+            case INS_GET_APP_CONFIGURATION:
+                *tx = set_result_get_app_configuration();
+                THROW(SW_OK);
+                break;
+
+            default:
+                // Instruction not supported
+                THROW(SW_INS_NOT_SUPPORTED);
+                break;
+            }
+        }
+        CATCH(EXCEPTION_IO_RESET) {
+            THROW(EXCEPTION_IO_RESET);
+        }
+        CATCH_OTHER(e) {
+            switch (e & 0xF000) {
+            case 0x6000:
+                sw = e;                
+                break;
+            case 0x9000:
+                // All is well
+                sw = e;
+                break;
+            default:
+                // Internal error
+                sw = 0x6800 | (e & 0x7FF);
+                break;
+            }
+            // Unexpected exception => report
+            G_io_apdu_buffer[*tx] = sw >> 8;
+            G_io_apdu_buffer[*tx + 1] = sw;
+            *tx += 2;
+        }
+        FINALLY {
+        }
+    END_TRY;
+    }
+}
+
+void init_context() {
+    os_memset(&tmp_ctx, 0, sizeof(tmp_ctx));
+}
+
+static void waves_main(void) {
     volatile unsigned int rx = 0;
     volatile unsigned int tx = 0;
     volatile unsigned int flags = 0;
-
 
     // next timer callback in 500 ms
     UX_CALLBACK_SET_INTERVAL(500);
@@ -509,55 +302,14 @@ static void sample_main(void) {
                 // no apdu received, well, reset the session, and reset the
                 // bootloader configuration
                 if (rx == 0) {
-                    THROW(0x6982);
+                    THROW(SW_SECURITY_STATUS_NOT_SATISFIED);
                 }
 
-                if (G_io_apdu_buffer[0] != CLA) {
-                    THROW(0x6E00);
-                }
-
-                switch (G_io_apdu_buffer[1]) {
-                case INS_SIGN: {
-                    if ((G_io_apdu_buffer[2] != P1_MORE) &&
-                        (G_io_apdu_buffer[2] != P1_LAST)) {
-                        THROW(0x6A86);
-                    }
-                    if (hashTainted) {
-                        cx_sha256_init(&hash);
-                        hashTainted = 0;
-                    }
-                    // Wait for the UI to be completed
-                    current_text_pos = 0;
-                    text_y = 60;
-                    G_io_apdu_buffer[5 + G_io_apdu_buffer[4]] = '\0';
-
-                    display_text_part();
-                    ui_text();
-
-                    flags |= IO_ASYNCH_REPLY;
-                } break;
-
-                case INS_GET_PUBLIC_KEY: {
-                    cx_ecfp_public_key_t publicKey;
-                    cx_ecfp_private_key_t privateKey;
-                    os_memmove(&privateKey, &N_privateKey,
-                               sizeof(cx_ecfp_private_key_t));
-                    PRINTF("privateKey: %d %d %.*h\n", privateKey.curve, privateKey.d_len, privateKey.d_len, privateKey.d);
-                    cx_ecfp_generate_pair(CX_CURVE_Ed25519, &publicKey,
-                                          &privateKey, 1);
-                    os_memmove(G_io_apdu_buffer, publicKey.W, 65);
-                    tx = 65;
-                    PRINTF("publicKey: %d %d %.*h\n", publicKey.curve, publicKey.W_len, publicKey.W_len, &publicKey.W);
-                    THROW(0x9000);
-                } break;
-
-                case 0xFF: // return to dashboard
-                    goto return_to_dashboard;
-
-                default:
-                    THROW(0x6D00);
-                    break;
-                }
+                // Call the Apdu handler,
+                handle_apdu(&flags, &tx, rx);
+            }
+            CATCH(EXCEPTION_IO_RESET) {
+                THROW(EXCEPTION_IO_RESET);
             }
             CATCH_OTHER(e) {
                 switch (e & 0xF000) {
@@ -573,8 +325,6 @@ static void sample_main(void) {
                 G_io_apdu_buffer[tx] = sw >> 8;
                 G_io_apdu_buffer[tx + 1] = sw;
                 tx += 2;
-
-                PRINTF("CATCH_OTHER: %d %d\n", e, sw);
             }
             FINALLY {
             }
@@ -582,7 +332,6 @@ static void sample_main(void) {
         END_TRY;
     }
 
-return_to_dashboard:
     return;
 }
 
@@ -590,71 +339,9 @@ void io_seproxyhal_display(const bagl_element_t *element) {
     io_seproxyhal_display_default((bagl_element_t *)element);
 }
 
-// Pick the text elements to display
-static unsigned char display_text_part() {
-    unsigned int i;
-    WIDE char *text = (char*) G_io_apdu_buffer + 5;
-    if (text[current_text_pos] == '\0') {
-        return 0;
-    }
-    i = 0;
-    while ((text[current_text_pos] != 0) && (text[current_text_pos] != '\n') &&
-           (i < MAX_CHARS_PER_LINE)) {
-        lineBuffer[i++] = text[current_text_pos];
-        current_text_pos++;
-    }
-    if (text[current_text_pos] == '\n') {
-        current_text_pos++;
-    }
-    lineBuffer[i] = '\0';
-#ifdef TARGET_BLUE
-    os_memset(bagl_ui_text, 0, sizeof(bagl_ui_text));
-    bagl_ui_text[0].component.type = BAGL_LABEL;
-    bagl_ui_text[0].component.x = 4;
-    bagl_ui_text[0].component.y = text_y;
-    bagl_ui_text[0].component.width = 320;
-    bagl_ui_text[0].component.height = TEXT_HEIGHT;
-    // element.component.fill = BAGL_FILL;
-    bagl_ui_text[0].component.fgcolor = 0x000000;
-    bagl_ui_text[0].component.bgcolor = 0xf9f9f9;
-    bagl_ui_text[0].component.font_id = DEFAULT_FONT;
-    bagl_ui_text[0].text = lineBuffer;
-    text_y += TEXT_HEIGHT + TEXT_SPACE;
-#endif
-    return 1;
-}
-
-static void ui_idle(void) {
-    uiState = UI_IDLE;
-#ifdef TARGET_BLUE
-    UX_DISPLAY(bagl_ui_idle_blue, NULL);
-#else
-    UX_DISPLAY(bagl_ui_idle_nanos, NULL);
-#endif
-}
-
-static void ui_text(void) {
-    uiState = UI_TEXT;
-#ifdef TARGET_BLUE
-    UX_DISPLAY(bagl_ui_text, NULL);
-#else
-    UX_DISPLAY(bagl_ui_text_review_nanos, NULL);
-#endif
-}
-
-static void ui_approval(void) {
-    uiState = UI_APPROVAL;
-#ifdef TARGET_BLUE
-    UX_DISPLAY(bagl_ui_approval_blue, NULL);
-#else
-    UX_DISPLAY(bagl_ui_approval_nanos, NULL);
-#endif
-}
-
 unsigned char io_event(unsigned char channel) {
     // nothing done with the event, throw an error on the transport layer if
     // needed
-
     // can't have more than one tag in the reply, not supported yet.
     switch (G_io_seproxyhal_spi_buffer[0]) {
     case SEPROXYHAL_TAG_FINGER_EVENT:
@@ -666,28 +353,18 @@ unsigned char io_event(unsigned char channel) {
         break;
 
     case SEPROXYHAL_TAG_DISPLAY_PROCESSED_EVENT:
-        if ((uiState == UI_TEXT) &&
-            (os_seph_features() &
-             SEPROXYHAL_TAG_SESSION_START_EVENT_FEATURE_SCREEN_BIG)) {
-            if (!display_text_part()) {
-                ui_approval();
-            } else {
-                UX_REDISPLAY();
-            }
-        } else {
-            UX_DISPLAYED_EVENT();
-        }
+        UX_DISPLAYED_EVENT({ });
         break;
 
     case SEPROXYHAL_TAG_TICKER_EVENT:
-        #ifdef TARGET_NANOS
-            UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {
-                // defaulty retrig very soon (will be overriden during
-                // stepper_prepro)
-                UX_CALLBACK_SET_INTERVAL(500);
+        UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {
+            if (ux_step_count && UX_ALLOWED) {
+                // prepare next screen
+                ux_step = (ux_step + 1) % ux_step_count;
+                // redisplay screen
                 UX_REDISPLAY();
-            });
-        #endif 
+            }
+        });
         break;
 
     // unknown events are acknowledged
@@ -705,58 +382,68 @@ unsigned char io_event(unsigned char channel) {
     return 1;
 }
 
+void app_exit(void) {
+    BEGIN_TRY_L(exit) {
+        TRY_L(exit) {
+            os_sched_exit(-1);
+        }
+        FINALLY_L(exit) {
+        }
+    }
+    END_TRY_L(exit);
+}
+
 __attribute__((section(".boot"))) int main(void) {
     // exit critical section
     __asm volatile("cpsie i");
 
-    current_text_pos = 0;
-    text_y = 60;
-    hashTainted = 1;
-    uiState = UI_IDLE;
+    init_context();
+    // current_text_pos = 0;
+    // text_y = 60;
+    ui_state = UI_IDLE;
 
-    // ensure exception will work as planned
-    os_boot();
+    for (;;) {
+        // ensure exception will work as planned
+        os_boot();
 
-    UX_INIT();
+        UX_INIT();
 
-    BEGIN_TRY {
-        TRY {
-            io_seproxyhal_init();
+        BEGIN_TRY {
+            TRY {
+                io_seproxyhal_init();
 
-            // Create the private key if not initialized
-            if (N_initialized != 0x01) {
-                unsigned char canary;
-                cx_ecfp_private_key_t privateKey;
-                cx_ecfp_public_key_t publicKey;
-                cx_ecfp_generate_pair(CX_CURVE_Ed25519, &publicKey, &privateKey,
-                                      0);
-                PRINTF("private key: %d %.*h\n", privateKey.d_len, privateKey.d_len, privateKey.d);
-                nvm_write((void*) &N_privateKey, &privateKey,
-                          sizeof(privateKey));
-                canary = 0x01;
-                nvm_write((void*) &N_initialized, &canary, sizeof(canary));
+                if (N_storage.initialized != 0x01) {
+                    internal_storage_t storage;
+                    storage.fido_transport = 0x00;
+                    storage.initialized = 0x01;
+                    nvm_write(&N_storage, (void *)&storage,
+                              sizeof(internal_storage_t));
+                }
+
+                USB_power(0);
+                USB_power(1);
+
+                // set menu bar colour for blue
+#if defined(TARGET_BLUE)
+                UX_SET_STATUS_BAR_COLOR(COLOR_BG_1, COLOR_APP);
+#endif // #if TARGET_ID
+
+                ui_idle();
+
+                waves_main();
             }
-
-#ifdef LISTEN_BLE
-            if (os_seph_features() &
-                SEPROXYHAL_TAG_SESSION_START_EVENT_FEATURE_BLE) {
-                BLE_power(0, NULL);
-                // restart IOs
-                BLE_power(1, NULL);
+            CATCH(EXCEPTION_IO_RESET) {
+                // reset IO and UX before continuing
+                continue;
             }
-#endif
-
-            USB_power(0);
-            USB_power(1);
-
-            ui_idle();
-
-            sample_main();
+            CATCH_ALL {
+                break;
+            }
+            FINALLY {
+            }
         }
-        CATCH_OTHER(e) {
-        }
-        FINALLY {
-        }
+        END_TRY;
     }
-    END_TRY;
+    app_exit();
+    return 0;
 }
