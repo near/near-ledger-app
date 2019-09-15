@@ -101,7 +101,7 @@ extern uiContext_t ui_context;
 
 extern tmpContext_t tmp_ctx; // Temporary area to store stuff
 
-bool get_curve25519_public_key_for_path(const uint32_t* path, cx_ecfp_public_key_t* public_key);
+bool get_ed25519_public_key_for_path(const uint32_t* path, cx_ecfp_public_key_t* public_key);
 
 void init_context();
 uint32_t set_result_get_address();
