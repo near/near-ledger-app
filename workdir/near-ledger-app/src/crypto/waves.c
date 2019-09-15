@@ -10,9 +10,6 @@ void waves_secure_hash(const uint8_t *message, size_t message_len, uint8_t hash[
 void waves_message_sign(const cx_ecfp_private_key_t *private_key, const ed25519_public_key public_key, const unsigned char *message, const size_t message_size, ed25519_signature signature) {
     // ed25519 signature with the sha512 hashing
     cx_eddsa_sign(private_key, 0, CX_SHA512, message, message_size, NULL, 0, signature, 64, NULL);
-    // set the sign bit from ed25519 public key (using 31 byte) for curve25519 validation used in waves (this makes the ed25519 signature invalid)
-    unsigned char sign_bit = public_key[31] & 0x80;
-    signature[63] |= sign_bit;
 }
 
 // Build waves address from the curve25519 public key, check https://github.com/wavesplatform/Waves/wiki/Data-Structures#address
