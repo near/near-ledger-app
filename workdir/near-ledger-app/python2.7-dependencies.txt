@@ -7,7 +7,7 @@ ECPy==0.8.1
 future==0.16.0
 hidapi==0.7.99.post21
 idna==2.6
-ledgerblue==0.1.17
+ledgerblue==0.1.28
 Pillow==5.0.0
 protobuf==3.5.2.post1
 pyblake2==1.1.1
