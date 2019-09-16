@@ -40,7 +40,7 @@ enum UI_STATE ui_state;
 
 int ux_step, ux_step_count;
 
-bool print_amount(uint64_t amount, int decimals, unsigned char *out, uint8_t len);
+bool print_amount(uint64_t amount, unsigned char *out, uint8_t len);
 
 void menu_address_init() {
     ux_step = 0;
@@ -65,21 +65,18 @@ void ui_idle() {
 
 // Show the transaction details for the user to approve
 void menu_sign_init() {
-    PRINTF("menu_sign_init: %.*h\n", 32, tmp_ctx.signing_context.buffer);
     os_memset((unsigned char *) &ui_context, 0, sizeof(uiContext_t));
 
     // TODO: Use NEAR-specific signing_context
     unsigned char tx_type = tmp_ctx.signing_context.data_type;
     unsigned char tx_version = tmp_ctx.signing_context.data_version;
 
-    unsigned int processed = 0;
+    unsigned int processed = -2;
     
     uint32_t signer_id_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
     processed += 4;
     unsigned char *signer_id = &tmp_ctx.signing_context.buffer[processed];
     processed += signer_id_len;
-
-    PRINTF("menu_sign_init signer_id_len: %d\n", signer_id_len);
 
     // public key
     processed += 33;
@@ -91,10 +88,6 @@ void menu_sign_init() {
     processed += 4;
     unsigned char *receiver_id = &tmp_ctx.signing_context.buffer[processed];
     processed += receiver_id_len;
-
-    // TODO: Make sure to trunc to max UI length
-    os_memmove(ui_context.line2, receiver_id, 30);
-    PRINTF("menu_sign_init: %s\n", ui_context.line2);
 
     // block hash
     processed += 32;
@@ -108,16 +101,15 @@ void menu_sign_init() {
     processed += 1;
 
     // transfer
-    if (action_type == 4) {
-        uint64_t amount = 0;
-        // TODO: Is reverse order needed?
-        copy_in_reverse_order((unsigned char *) &amount, (const unsigned char *) &tmp_ctx.signing_context.buffer[processed], 8);
+    if (action_type == 3) {
+        uint64_t amount = *((uint64_t *) &tmp_ctx.signing_context.buffer[processed]);
         // TODO: Print 128-bit value
-        print_amount(amount, tmp_ctx.signing_context.amount_decimals, (unsigned char*) ui_context.line1, 45);
+        print_amount(amount, (unsigned char *) ui_context.line1, 45);
         processed += 16;
 
         // TODO: Make sure to trunc to max UI length
         os_memmove(ui_context.line2, receiver_id, receiver_id_len);
+        os_memmove(ui_context.line3, signer_id, signer_id_len);
 
         // Set the step/step count, and ui_state before requesting the UI
         ux_step = 0; ux_step_count = 9;
@@ -142,7 +134,9 @@ void menu_sign_init() {
 
 
 // borrowed from the Stellar wallet code and modified
-bool print_amount(uint64_t amount, int decimals, unsigned char *out, uint8_t len) {
+bool print_amount(uint64_t amount, unsigned char *out, uint8_t len) {
+    int decimals = 18;
+
     char buffer[len];
     uint64_t dVal = amount;
     int i, j;
