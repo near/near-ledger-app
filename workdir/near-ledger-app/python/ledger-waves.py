@@ -203,9 +203,9 @@ while (True):
 
     if (select == "1"):
         path = raw_input(
-            colors.fg.lightblue + "Please input BIP-32 path (for example \"44'/5741564'/0'/0'/1'\")> " + colors.reset)
+            colors.fg.lightblue + "Please input BIP-32 path (for example \"44'/397'/0'/0'/1'\")> " + colors.reset)
         if len(path) == 0:
-            path = "44'/5741564'/0'/0'/1'"
+            path = "44'/397'/0'/0'/1'"
         keys = getKeysFromDongle(expand_path(path), chain_id)
         if keys:
             publicKey = keys[0]
@@ -215,9 +215,9 @@ while (True):
             print(colors.fg.blue + "address: " + colors.reset + address)
     elif (select == "2"):
         path = raw_input(
-            colors.fg.lightblue + "Please input BIP-32 path (for example \"44'/5741564'/0'/0'/1'\")> " + colors.reset)
+            colors.fg.lightblue + "Please input BIP-32 path (for example \"44'/397'/0'/0'/1'\")> " + colors.reset)
         if len(path) == 0:
-            path = "44'/5741564'/0'/0'/1'"
+            path = "44'/397'/0'/0'/1'"
         binary_data = path_to_bytes(expand_path(path))
         print(colors.fg.lightgrey + "path bytes: " + base58.b58encode(str(path_to_bytes(expand_path(path)))))
 

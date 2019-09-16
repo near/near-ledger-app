@@ -31,7 +31,7 @@ void get_keypair_by_path(const uint32_t* path, cx_ecfp_public_key_t* public_key,
     cx_ecfp_generate_pair(CX_CURVE_Ed25519, public_key, private_key, 1);
 }
 
-// Get a public key from the 44'/5741564' keypath.
+// Get a public key from the 44'/397' keypath.
 bool get_ed25519_public_key_for_path(const uint32_t* path, cx_ecfp_public_key_t* public_key) {
     cx_ecfp_private_key_t private_key;
     // derive the ed25519 keys by that BIP32 path from the device
