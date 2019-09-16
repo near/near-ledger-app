@@ -9,5 +9,6 @@ void get_keypair_by_path(const uint32_t* path, cx_ecfp_public_key_t* public_key,
 bool get_ed25519_public_key_for_path(const uint32_t* path, cx_ecfp_public_key_t* public_key);
 void blake2b_256(const unsigned char* msg, size_t msg_len, void* out);
 void keccak_256(const unsigned char* msg, size_t msg_len, void* out);
+void sha_256(const unsigned char* msg, size_t msg_len, void* out);
 
 #endif

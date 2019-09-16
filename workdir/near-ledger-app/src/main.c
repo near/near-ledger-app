@@ -133,7 +133,8 @@ uint32_t set_result_sign() {
     public_key_le_to_be(&public_key);
 
     uint8_t signature[64];
-    waves_message_sign(&private_key, public_key.W, (unsigned char *) tmp_ctx.signing_context.buffer, tmp_ctx.signing_context.buffer_used, signature);
+    // TODO: Figure out why offset/size correction needed
+    waves_message_sign(&private_key, public_key.W, (unsigned char *) tmp_ctx.signing_context.buffer - 2, tmp_ctx.signing_context.buffer_used + 2, signature);
 
     os_memmove((char *) G_io_apdu_buffer, signature, sizeof(signature));
 

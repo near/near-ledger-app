@@ -63,3 +63,13 @@ void keccak_256(const unsigned char* msg, size_t msg_len, void* out)
     // size in bytes
     cx_hash(&ctx.header, CX_LAST, NULL, 0, out, 32);
 }
+
+void sha_256(const unsigned char* msg, size_t msg_len, void* out)
+{
+    cx_sha256_t ctx;
+    // size in bits
+    cx_sha256_init(&ctx);
+    cx_hash(&ctx.header, 0, (void *)msg, msg_len, NULL, 0);
+    // size in bytes
+    cx_hash(&ctx.header, CX_LAST, NULL, 0, out, 32);
+}
