@@ -188,13 +188,13 @@ while (True):
             dongle = getDongle(True)
         except Exception as e:
             answer = raw_input(
-                "Please connect your Ledger Nano S, unlock, and launch the Waves app. Press <enter> when ready. (Q quits)")
+                "Please connect your Ledger Nano S, unlock, and launch the NEAR app. Press <enter> when ready. (Q quits)")
             if (answer.upper() == 'Q'):
                 sys.exit(0)
             sys.exc_clear()
 
     print("")
-    print(colors.fg.lightcyan + colors.bold + "Ledger Nano S - Waves test app" + colors.reset)
+    print(colors.fg.lightcyan + colors.bold + "Ledger Nano S - NEAR test app" + colors.reset)
     print(colors.fg.white + "\t 1. Get PublicKey/Address from Ledger Nano S" + colors.reset)
     print(colors.fg.white + "\t 2. Sign tx using Ledger Nano S" + colors.reset)
     print(colors.fg.white + "\t 3. Get app version from Ledger Nano S" + colors.reset)
