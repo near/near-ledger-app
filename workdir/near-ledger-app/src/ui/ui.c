@@ -67,11 +67,7 @@ void ui_idle() {
 void menu_sign_init() {
     os_memset((unsigned char *) &ui_context, 0, sizeof(uiContext_t));
 
-    // TODO: Use NEAR-specific signing_context
-    unsigned char tx_type = tmp_ctx.signing_context.data_type;
-    unsigned char tx_version = tmp_ctx.signing_context.data_version;
-
-    unsigned int processed = -2;
+    unsigned int processed = 0;
     
     uint32_t signer_id_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
     processed += 4;

@@ -75,12 +75,6 @@ typedef struct uiContext_t {
 typedef struct signingContext_t {
     // bip32 path
 	uint32_t bip32[5];
-	unsigned char amount_decimals;
-	unsigned char fee_decimals;
-	// Stuff for the SHA-256 hashing
-    // Curve25519 support only full message hash
-	unsigned char data_type;
-	unsigned char data_version;
 	unsigned char buffer[MAX_DATA_SIZE];
 	uint32_t buffer_used;
 	unsigned char network_byte;

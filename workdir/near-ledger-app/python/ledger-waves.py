@@ -161,27 +161,6 @@ def expand_path(n):
 
     return path
 
-
-def build_transfer_bytes(publicKey, recipient, asset, amount, attachment='', feeAsset='', txFee=100000, timestamp=0, version = b'\2'):
-    if timestamp == 0:
-        timestamp = int(time.time() * 1000)
-
-    sData = b'\4' + version + b'\4'
-
-    if version == b'\2':
-        sData += version
-
-    sData += base58.b58decode(publicKey) + \
-            (b'\1' + base58.b58decode(asset.assetId) if asset else b'\0') + \
-            (b'\1' + base58.b58decode(feeAsset.assetId) if feeAsset else b'\0') + \
-            struct.pack(">Q", timestamp) + \
-            struct.pack(">Q", amount) + \
-            struct.pack(">Q", txFee) + \
-            base58.b58decode(recipient.address) + \
-            struct.pack(">H", len(attachment)) + \
-            pwcrypto.str2bytes(attachment)
-    return sData
-
 while (True):
     while (dongle == None):
         try:
@@ -221,29 +200,11 @@ while (True):
         binary_data = path_to_bytes(expand_path(path))
         print(colors.fg.lightgrey + "path bytes: " + base58.b58encode(str(path_to_bytes(expand_path(path)))))
 
-        # tx amount asset decimals
-        binary_data += chr(8)
-        # fee amount asset decimals
-        binary_data += chr(8)
-
-        # Tx info
-        #
-        # amount: 1
-        # asset: 9gqcTyupiDWuogWhKv8G3EMwjMaobkw9Lpys4EY2F62t
-        # from: 3PDCeakWckRvK5vVeJnCy1R2rE1utBcJMwt
-        # to: 3PMpANFyKGBwzvv1UVk2KdN23fJZ8sXSVEK
-        # attachment: privet
-        # fee: 0.001
-        # fee asset: WAVES
-        some_transfer_bytes = build_transfer_bytes('4ovEU8YpbHTurwzw8CDZaCD7m6LpyMTC4nrJcgDHb4Jh',
-                                                   pw.Address('3PMpANFyKGBwzvv1UVk2KdN23fJZ8sXSVEK'),
-                                                   pw.Asset('9gqcTyupiDWuogWhKv8G3EMwjMaobkw9Lpys4EY2F62t'), 1,
-                                                   'privet', timestamp = 1526477921829)
-        input = raw_input(colors.fg.lightblue + "Please input message to sign (for example \"" + base58.b58encode(
-            str(some_transfer_bytes)) + "\")> " + colors.reset)
+        sample_message = '9ATgXuduAYoeHdV6cNGetHUsUFJs5zczepvnd2C1NubjrZAHzywiEebf95HuvekWeFhUABJiabTVzidTVAwHe3ByPofv33U2Qj6j9A9pL1zdQkLGXa47tAvCSDAQhJe2y4g8RQbuxxYZKcJNK7YTFtjGgMx1YPL42hqa8256P'
+        input = raw_input(colors.fg.lightblue + "Please input message to sign (for example \"" + sample_message + "\")> " + colors.reset)
         if len(input) == 0:
-            binary_data += some_transfer_bytes
-            print(colors.fg.lightgrey + "tx bytes:   " + base58.b58encode(str(some_transfer_bytes)))
+            binary_data += base58.b58decode(sample_message)
+            print(colors.fg.lightgrey + "tx bytes:   " + sample_message)
         else:
             binary_data += base58.b58decode(input)
             print(colors.fg.lightgrey + "tx bytes:   " + base58.b58encode(str(input)))

@@ -97,26 +97,23 @@ void add_chunk_data() {
     // if this is a first chunk
     if (tmp_ctx.signing_context.buffer_used == 0) {
         // then there is the bip32 path in the first chunk - first 20 bytes of data
-        read_path_from_bytes(G_io_apdu_buffer + 5, (uint32_t *) tmp_ctx.signing_context.bip32);
-
-        // 21th byte - amount decimals
-        tmp_ctx.signing_context.amount_decimals = G_io_apdu_buffer[25];
-        // 22th byte - fee decimals
-        tmp_ctx.signing_context.fee_decimals = G_io_apdu_buffer[26];
-
-        // 23 byte - data type
-        tmp_ctx.signing_context.data_type = G_io_apdu_buffer[27];
-        // 24 byte - data version
-        tmp_ctx.signing_context.data_version = G_io_apdu_buffer[28];
+        read_path_from_bytes(&G_io_apdu_buffer[5], (uint32_t *) tmp_ctx.signing_context.bip32);
+        int path_size = sizeof(tmp_ctx.signing_context.bip32);
 
         // Update the other data from this segment
-        int data_size = G_io_apdu_buffer[4] - 24;
-        os_memmove((char *) tmp_ctx.signing_context.buffer, &G_io_apdu_buffer[29], data_size);
+        int data_size = G_io_apdu_buffer[4];
+        if (data_size < path_size) {
+            // TODO: Have specific error for underflow?
+            THROW(SW_BUFFER_OVERFLOW);
+        }
+        data_size -= path_size;
+
+        os_memmove((char *) tmp_ctx.signing_context.buffer, &G_io_apdu_buffer[25], data_size);
         tmp_ctx.signing_context.buffer_used += data_size;
     } else {
         // else update the data from entire segment.
         int data_size = G_io_apdu_buffer[4];
-        if (tmp_ctx.signing_context.buffer_used + data_size > MAX_DATA_SIZE) {
+        if (data_size > MAX_DATA_SIZE || tmp_ctx.signing_context.buffer_used + data_size > MAX_DATA_SIZE) {
             THROW(SW_BUFFER_OVERFLOW);
         }
         os_memmove((char *) &tmp_ctx.signing_context.buffer[tmp_ctx.signing_context.buffer_used], &G_io_apdu_buffer[5], data_size);
@@ -133,8 +130,7 @@ uint32_t set_result_sign() {
     public_key_le_to_be(&public_key);
 
     uint8_t signature[64];
-    // TODO: Figure out why offset/size correction needed
-    waves_message_sign(&private_key, public_key.W, (unsigned char *) tmp_ctx.signing_context.buffer - 2, tmp_ctx.signing_context.buffer_used + 2, signature);
+    waves_message_sign(&private_key, public_key.W, (unsigned char *) tmp_ctx.signing_context.buffer, tmp_ctx.signing_context.buffer_used, signature);
 
     os_memmove((char *) G_io_apdu_buffer, signature, sizeof(signature));
 
@@ -152,10 +148,10 @@ uint32_t set_result_get_address() {
 }
 
 uint32_t set_result_get_app_configuration() {
-  G_io_apdu_buffer[0] = LEDGER_MAJOR_VERSION;
-  G_io_apdu_buffer[1] = LEDGER_MINOR_VERSION;
-  G_io_apdu_buffer[2] = LEDGER_PATCH_VERSION;
-  return 3;
+    G_io_apdu_buffer[0] = LEDGER_MAJOR_VERSION;
+    G_io_apdu_buffer[1] = LEDGER_MINOR_VERSION;
+    G_io_apdu_buffer[2] = LEDGER_PATCH_VERSION;
+    return 3;
 }
 
 // Called by both the U2F and the standard communications channel
