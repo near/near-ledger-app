@@ -34,7 +34,7 @@ else
 ICONNAME = nanos_app_waves.gif
 endif
 
-APP_LOAD_PARAMS = --appFlags 0x40 --path "44'/5741564'" --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS)
+APP_LOAD_PARAMS = --appFlags 0x40 --path "44'/397'" --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS)
 
 # Build configuration
 
