@@ -20,7 +20,6 @@
 #include <stdbool.h>
 
 #include "main.h"
-#include "crypto/waves.h"
 #include "crypto/ledger_crypto.h"
 #include "os_io_seproxyhal.h"
 
@@ -107,16 +106,20 @@ void add_chunk_data() {
             THROW(SW_BUFFER_OVERFLOW);
         }
         data_size -= path_size;
+        PRINTF("data_size: %d\n", data_size);
 
         os_memmove((char *) tmp_ctx.signing_context.buffer, &G_io_apdu_buffer[25], data_size);
+        PRINTF("buffer: %.*h\n", data_size, tmp_ctx.signing_context.buffer);
         tmp_ctx.signing_context.buffer_used += data_size;
     } else {
         // else update the data from entire segment.
         int data_size = G_io_apdu_buffer[4];
+        PRINTF("data_size: %d\n", data_size);
         if (data_size > MAX_DATA_SIZE || tmp_ctx.signing_context.buffer_used + data_size > MAX_DATA_SIZE) {
             THROW(SW_BUFFER_OVERFLOW);
         }
         os_memmove((char *) &tmp_ctx.signing_context.buffer[tmp_ctx.signing_context.buffer_used], &G_io_apdu_buffer[5], data_size);
+        PRINTF("buffer: %.*h\n", data_size, &tmp_ctx.signing_context.buffer[tmp_ctx.signing_context.buffer_used]);
         tmp_ctx.signing_context.buffer_used += data_size;
     }
 }
@@ -130,7 +133,7 @@ uint32_t set_result_sign() {
     public_key_le_to_be(&public_key);
 
     uint8_t signature[64];
-    waves_message_sign(&private_key, public_key.W, (unsigned char *) tmp_ctx.signing_context.buffer, tmp_ctx.signing_context.buffer_used, signature);
+    near_message_sign(&private_key, public_key.W, (unsigned char *) tmp_ctx.signing_context.buffer, tmp_ctx.signing_context.buffer_used, signature);
 
     os_memmove((char *) G_io_apdu_buffer, signature, sizeof(signature));
 
@@ -143,11 +146,11 @@ uint32_t set_result_sign() {
 
 uint32_t set_result_get_address() {
     os_memmove((char *) G_io_apdu_buffer, (char *) tmp_ctx.address_context.public_key, 32);
-    os_memmove((char *) G_io_apdu_buffer + 32, (char *) tmp_ctx.address_context.address, 35);
-    return 67;
+    return 32;
 }
 
 uint32_t set_result_get_app_configuration() {
+    PRINTF("set_result_get_app_configuration\n");
     G_io_apdu_buffer[0] = LEDGER_MAJOR_VERSION;
     G_io_apdu_buffer[1] = LEDGER_MINOR_VERSION;
     G_io_apdu_buffer[2] = LEDGER_PATCH_VERSION;
@@ -168,6 +171,7 @@ void handle_apdu(volatile unsigned int *flags, volatile unsigned int *tx, volati
                 THROW(SW_CLA_NOT_SUPPORTED);
             }
 
+            PRINTF("command: %d\n", G_io_apdu_buffer[1]);
             switch (G_io_apdu_buffer[1]) {
             case INS_SIGN: {
                 if (G_io_apdu_buffer[4] != rx - 5) {
@@ -211,13 +215,7 @@ void handle_apdu(volatile unsigned int *flags, volatile unsigned int *tx, volati
                     THROW(INVALID_PARAMETER);
                 }
 
-                unsigned char address[35];
-                waves_public_key_to_address(public_key.W, G_io_apdu_buffer[3], address);
-
                 os_memmove((char *) tmp_ctx.address_context.public_key, public_key.W, 32);
-                os_memmove((char *) tmp_ctx.address_context.address, address, 35);
-                // term byte for string shown
-                tmp_ctx.address_context.address[35] = '\0';
 
                 if (G_io_apdu_buffer[2] == P1_NON_CONFIRM) {
                     *tx = set_result_get_address();

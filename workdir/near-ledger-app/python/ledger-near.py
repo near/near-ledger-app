@@ -85,7 +85,7 @@ def getKeysFromDongle(path, networkByte):
         try:
             data_bytes = bytes(("800400" + '{0:x}'.format(ord(networkByte)) + "14").decode('hex')) + path_to_bytes(path)
             data = dongle.exchange(data_bytes)
-            return [data[0:32], data[32:67]]
+            return data[0:32]
         except CommException as e:
             if (e.sw == 0x6985):
                 print(colors.fg.red + "Required condition failed." + colors.reset)
@@ -174,7 +174,7 @@ while (True):
 
     print("")
     print(colors.fg.lightcyan + colors.bold + "Ledger Nano S - NEAR test app" + colors.reset)
-    print(colors.fg.white + "\t 1. Get PublicKey/Address from Ledger Nano S" + colors.reset)
+    print(colors.fg.white + "\t 1. Get PublicKey from Ledger Nano S" + colors.reset)
     print(colors.fg.white + "\t 2. Sign tx using Ledger Nano S" + colors.reset)
     print(colors.fg.white + "\t 3. Get app version from Ledger Nano S" + colors.reset)
     print(colors.fg.white + "\t 4. Exit" + colors.reset)
@@ -185,13 +185,9 @@ while (True):
             colors.fg.lightblue + "Please input BIP-32 path (for example \"44'/397'/0'/0'/1'\")> " + colors.reset)
         if len(path) == 0:
             path = "44'/397'/0'/0'/1'"
-        keys = getKeysFromDongle(expand_path(path), chain_id)
-        if keys:
-            publicKey = keys[0]
-            address = keys[1]
-
+        publicKey = getKeysFromDongle(expand_path(path), chain_id)
+        if publicKey: 
             print(colors.fg.blue + "publicKey (base58): " + colors.reset + base58.b58encode(str(publicKey)))
-            print(colors.fg.blue + "address: " + colors.reset + address)
     elif (select == "2"):
         path = raw_input(
             colors.fg.lightblue + "Please input BIP-32 path (for example \"44'/397'/0'/0'/1'\")> " + colors.reset)

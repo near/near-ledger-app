@@ -22,7 +22,6 @@
 #include <stdbool.h>
 #include "../glyphs.h"
 #include "../main.h"
-#include "../crypto/waves.h"
 #ifdef TARGET_NANOS
 #include "nanos/ui_menus_nanos.h"
 #include "nanos/ui_menus_buttons.h"
