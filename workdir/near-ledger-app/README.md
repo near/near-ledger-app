@@ -1,6 +1,6 @@
 # near-ledger-app
 
-Waves wallet application for Ledger Nano S
+NEAR wallet application for Ledger Nano S
 
 # Introduction
 

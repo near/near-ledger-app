@@ -5,7 +5,7 @@ Based on https://github.com/ZondaX/ledger-docker-bolos (MIT license) and https:/
 ## Requirements
 
 * Docker installed
-* Python 2.7 installed
+* Python 4 installed
 * A Ledger Nano
 
 ## Steps to get this to work
@@ -18,29 +18,16 @@ Based on https://github.com/ZondaX/ledger-docker-bolos (MIT license) and https:/
   export BOLOS_SDK=$HOME/near-ledger-app/workdir/nanos-secure-sdk
   ```
 
-4. Run `sh build.sh`. You may have to log into docker.
-5. `cd` into `workdir/near-ledger-app`
-6. Run `pip install -r python2.7-dependencies.txt` (If you see errors, you may want to use `virtualenv`*)
-7. run `make load-only` with the ledger app plugged in. If you get an error, you may need to also set the following env var:
+4. Run `./build.sh`. You may have to log into Docker.
+5. `./run.sh` – this starts shell in Docker.
+6. `cd` into `workdir/near-ledger-app` (in Docker) 
+7. Run `make` (in Docker).
+8. `cd` into `workdir/near-ledger-app` (in local env) 
+9. Run `pip install ledgerblue`
+10. Run `make load-only` with the ledger app plugged in. If you get an error, you may need to also set the following env var:
   
   ```bash
   export SCP_PRIVKEY=""
   ```
 
   And then run the make command again.
-
-### *Using virtual env
-
-**you must be using bash to use the following workflow**
-
-1. `pip install virtualenv`
-2. cd into `workdir/near-ledger-app/`
-3. `virtualenv env`
-4. `source env/bin/activate` You should see something like `(env)bash$` where your bash profile normally is.
-5. Go back and run the pip install from step 5 above.
-
-## Testing it out
-
-```bash
-python python/ledger-near.py
-```
