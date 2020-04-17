@@ -18,9 +18,9 @@ There may well be room for performance-optimizations and improvements.
 
 */
 
-#include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <os_io_seproxyhal.h>
 #include "bn.h"
 
 
@@ -94,34 +94,6 @@ int bignum_to_int(struct bn* n)
   return ret;
 }
 
-
-void bignum_from_string(struct bn* n, char* str, int nbytes)
-{
-  require(n, "n is null");
-  require(str, "str is null");
-  require(nbytes > 0, "nbytes must be positive");
-  require((nbytes & 1) == 0, "string format must be in hex -> equal number of bytes");
-  require((nbytes % (sizeof(DTYPE) * 2)) == 0, "string length must be a multiple of (sizeof(DTYPE) * 2) characters");
-  
-  bignum_init(n);
-
-  DTYPE tmp;                        /* DTYPE is defined in bn.h - uint{8,16,32,64}_t */
-  int i = nbytes - (2 * WORD_SIZE); /* index into string */
-  int j = 0;                        /* index into array */
-
-  /* reading last hex-byte "MSB" from string first -> big endian */
-  /* MSB ~= most significant byte / block ? :) */
-  while (i >= 0)
-  {
-    tmp = 0;
-    sscanf(&str[i], SSCANF_FORMAT_STR, &tmp);
-    n->array[j] = tmp;
-    i -= (2 * WORD_SIZE); /* step WORD_SIZE hex-byte(s) back in the string. */
-    j += 1;               /* step one element forward in the array. */
-  }
-}
-
-
 void bignum_to_string(struct bn* n, char* str, int nbytes)
 {
   require(n, "n is null");
@@ -135,7 +107,7 @@ void bignum_to_string(struct bn* n, char* str, int nbytes)
   /* reading last array-element "MSB" first -> big endian */
   while ((j >= 0) && (nbytes > (i + 1)))
   {
-    sprintf(&str[i], SPRINTF_FORMAT_STR, n->array[j]);
+    SPRINTF(&str[i], SPRINTF_FORMAT_STR, n->array[j]);
     i += (2 * WORD_SIZE); /* step WORD_SIZE hex-byte(s) forward in the string. */
     j -= 1;               /* step one element back in the array. */
   }
