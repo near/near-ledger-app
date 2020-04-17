@@ -39,7 +39,6 @@ enum UI_STATE ui_state;
 
 int ux_step, ux_step_count;
 
-bool print_amount(uint64_t amount, unsigned char *out, uint8_t len);
 
 void menu_address_init() {
     ux_step = 0;
@@ -60,6 +59,68 @@ void ui_idle() {
     #elif defined(TARGET_NANOS)
         UX_MENU_DISPLAY(0, menu_main, NULL);
     #endif // #if TARGET_ID
+}
+
+/*
+ Adapted from https://en.wikipedia.org/wiki/Double_dabble#C_implementation 
+*/
+void format_long_int_amount(int n, uint16_t *arr, char *output) {
+    int nbits = 16 * n;       /* length of arr in bits */
+    int nscratch = nbits / 3; /* length of scratch in bytes */
+    char scratch[128] = {};
+    if (nscratch >= sizeof(scratch)) {
+        // Scratch buffer is too small
+        output[0] = '\0';
+        return;
+    }
+
+    int i, j, k;
+    int smin = nscratch - 2; /* speed optimization */
+
+    for (i = 0; i < n; ++i) {
+        for (j = 0; j < 16; ++j) {
+            /* This bit will be shifted in on the right. */
+            int shifted_in = (arr[n - i - 1] & (1 << (15 - j))) ? 1 : 0;
+
+            /* Add 3 everywhere that scratch[k] >= 5. */
+            for (k = smin; k < nscratch; ++k) {
+                scratch[k] += (scratch[k] >= 5) ? 3 : 0;
+            }
+
+            /* Shift scratch to the left by one position. */
+            if (scratch[smin] >= 8) {
+                smin -= 1;
+            }
+            for (k = smin; k < nscratch - 1; ++k) {
+                scratch[k] <<= 1;
+                scratch[k] &= 0xF;
+                scratch[k] |= (scratch[k + 1] >= 8);
+            }
+
+            /* Shift in the new bit from arr. */
+            scratch[nscratch - 1] <<= 1;
+            scratch[nscratch - 1] &= 0xF;
+            scratch[nscratch - 1] |= shifted_in;
+        }
+    }
+
+    /* Remove leading zeros from the scratch space. */
+    for (k = 0; k < nscratch - 1; ++k) {
+        if (scratch[k] != 0) {
+            break;
+        }
+    }
+    nscratch -= k;
+    memmove(scratch, scratch + k, nscratch + 1);
+
+    /* Convert the scratch space from BCD digits to ASCII. */
+    for (k = 0; k < nscratch; ++k) {
+        scratch[k] += '0';
+    }
+
+    /* Resize and return the resulting string. */
+    memmove(output, scratch, nscratch + 1);
+    return;
 }
 
 // Show the transaction details for the user to approve
@@ -97,9 +158,8 @@ void menu_sign_init() {
 
     // transfer
     if (action_type == 3) {
-        uint64_t amount = *((uint64_t *) &tmp_ctx.signing_context.buffer[processed]);
-        // TODO: Print 128-bit value
-        print_amount(amount, (unsigned char *) ui_context.line1, 45);
+        format_long_int_amount(8, &tmp_ctx.signing_context.buffer[processed], ui_context.line1);
+
         processed += 16;
 
         // TODO: Make sure to trunc to max UI length
@@ -125,48 +185,4 @@ void menu_sign_init() {
     #elif defined(TARGET_NANOS)
         UX_DISPLAY(ui_verify_transaction_nanos, ui_verify_transaction_prepro);
     #endif // #if TARGET_ID
-}
-
-
-// borrowed from the Stellar wallet code and modified
-bool print_amount(uint64_t amount, unsigned char *out, uint8_t len) {
-    int decimals = 18;
-
-    char buffer[len];
-    uint64_t dVal = amount;
-    int i, j;
-
-    if (decimals == 0) decimals--;
-
-    memset(buffer, 0, len);
-    for (i = 0; dVal > 0 || i < decimals + 2; i++) {
-        if (dVal > 0) {
-            buffer[i] = (char) ((dVal % 10) + '0');
-            dVal /= 10;
-        } else {
-            buffer[i] = '0';
-        }
-        if (i == decimals - 1) {
-            i += 1;
-            buffer[i] = '.';
-        }
-        if (i >= len) {
-            return false;
-        }
-    }
-    // reverse order
-    for (i -= 1, j = 0; i >= 0 && j < len-1; i--, j++) {
-        out[j] = buffer[i];
-    }
-    if (decimals > 0) {
-        // strip trailing 0s
-        for (j -= 1; j > 0; j--) {
-            if (out[j] != '0') break;
-        }
-        j += 1;
-        if (out[j - 1] == '.') j -= 1;
-    }
-
-    out[j] = '\0';
-    return  true;
 }
