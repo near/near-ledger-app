@@ -63,15 +63,16 @@ void ui_idle() {
 
 /*
  Adapted from https://en.wikipedia.org/wiki/Double_dabble#C_implementation 
+ Returns: length of resulting string or -1 for error
 */
-void format_long_int_amount(int n, uint16_t *arr, char *output) {
+int format_long_int_amount(int n, uint16_t *arr, char *output) {
     int nbits = 16 * n;       /* length of arr in bits */
     int nscratch = nbits / 3; /* length of scratch in bytes */
     char scratch[128] = {};
     if (nscratch >= sizeof(scratch)) {
         // Scratch buffer is too small
         output[0] = '\0';
-        return;
+        return -1;
     }
 
     int i, j, k;
@@ -120,7 +121,27 @@ void format_long_int_amount(int n, uint16_t *arr, char *output) {
 
     /* Resize and return the resulting string. */
     memmove(output, scratch, nscratch + 1);
-    return;
+    return nscratch;
+}
+
+int format_long_decimal_amount(int n, const unsigned int *arr, char *output, int nomination) {
+    int len = format_long_int_amount(n, arr, output);
+    if (len <= nomination) {
+        // < 1.0
+        memmove(output + 2 + (nomination - len), output, len);
+        memset(output + 2, '0', (nomination - len));
+        output[0] = '0';
+        output[1] = '.';
+        output[nomination + 2] = 0;
+        return nomination + 2;
+    }
+
+    // >= 1.0
+    int int_len = len - nomination;
+    memmove(output + int_len + 1, output + int_len, nomination);
+    output[int_len] = '.';
+    output[len + 1] = 0;
+    return len + 1;
 }
 
 // Show the transaction details for the user to approve
@@ -158,7 +179,7 @@ void menu_sign_init() {
 
     // transfer
     if (action_type == 3) {
-        format_long_int_amount(8, &tmp_ctx.signing_context.buffer[processed], ui_context.line1);
+        format_long_decimal_amount(8, &tmp_ctx.signing_context.buffer[processed], ui_context.line1, 24);
 
         processed += 16;
 
