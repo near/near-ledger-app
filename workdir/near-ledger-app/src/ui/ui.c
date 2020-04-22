@@ -119,12 +119,12 @@ int format_long_int_amount(int n, uint16_t *arr, char *output) {
         scratch[k] += '0';
     }
 
-    /* Resize and return the resulting string. */
+    /* Resize and return */
     memmove(output, scratch, nscratch + 1);
     return nscratch;
 }
 
-int format_long_decimal_amount(int n, const unsigned int *arr, char *output, int nomination) {
+int format_long_decimal_amount(int n, uint16_t *arr, char *output, int nomination) {
     int len = format_long_int_amount(n, arr, output);
     if (len <= nomination) {
         // < 1.0
@@ -132,16 +132,22 @@ int format_long_decimal_amount(int n, const unsigned int *arr, char *output, int
         memset(output + 2, '0', (nomination - len));
         output[0] = '0';
         output[1] = '.';
-        output[nomination + 2] = 0;
-        return nomination + 2;
+        len = nomination + 2;
+    } else {
+        // >= 1.0
+        int int_len = len - nomination;
+        memmove(output + int_len + 1, output + int_len, nomination);
+        output[int_len] = '.';
+        len = len + 1;
     }
 
-    // >= 1.0
-    int int_len = len - nomination;
-    memmove(output + int_len + 1, output + int_len, nomination);
-    output[int_len] = '.';
-    output[len + 1] = 0;
-    return len + 1;
+    // Remove trailing zeros and dot
+    output[len] = '0';
+    while (len > 0 && (output[len] == '0' || output[len] == '.')) {
+        output[len--] = 0;
+    }
+
+    return len;
 }
 
 // Show the transaction details for the user to approve
