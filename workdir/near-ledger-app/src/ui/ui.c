@@ -179,6 +179,10 @@ void menu_sign_init() {
     uint32_t actions_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
     processed += 4;
 
+    // TODO: Make sure to trunc to max UI length
+    os_memmove(ui_context.line2, receiver_id, receiver_id_len);
+    os_memmove(ui_context.line3, signer_id, signer_id_len);
+
     // TODO: Parse more than one action
     uint8_t action_type = *((uint8_t *) &tmp_ctx.signing_context.buffer[processed]);
     processed += 1;
@@ -189,10 +193,7 @@ void menu_sign_init() {
 
         processed += 16;
 
-        // TODO: Make sure to trunc to max UI length
-        os_memmove(ui_context.line2, receiver_id, receiver_id_len);
-        os_memmove(ui_context.line3, signer_id, signer_id_len);
-
+        // TODO: Should step count be adjusted?
         // Set the step/step count, and ui_state before requesting the UI
         ux_step = 0; ux_step_count = 9;
         ui_state = UI_VERIFY;
