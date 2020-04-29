@@ -65,10 +65,11 @@ void ui_idle() {
  Adapted from https://en.wikipedia.org/wiki/Double_dabble#C_implementation 
  Returns: length of resulting string or -1 for error
 */
-int format_long_int_amount(int n, uint16_t *arr, char *output) {
+int format_long_int_amount(int n, uint16_t *arr, unsigned char *output) {
     int nbits = 16 * n;       /* length of arr in bits */
     int nscratch = nbits / 3; /* length of scratch in bytes */
-    char scratch[128] = {};
+    char scratch[43] = {};
+    // TODO: Pass and check size of output, do not use temp buffer
     if (nscratch >= sizeof(scratch)) {
         // Scratch buffer is too small
         output[0] = '\0';
@@ -154,6 +155,8 @@ int format_long_decimal_amount(int n, uint16_t *arr, char *output, int nominatio
 void menu_sign_init() {
     os_memset((unsigned char *) &ui_context, 0, sizeof(uiContext_t));
 
+    // TODO: Validate data when parsing tx
+
     unsigned int processed = 0;
     
     uint32_t signer_id_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
@@ -175,19 +178,24 @@ void menu_sign_init() {
     // block hash
     processed += 32;
 
-    // actions
-    uint32_t actions_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
-    processed += 4;
-
     // TODO: Make sure to trunc to max UI length
     os_memmove(ui_context.line2, receiver_id, receiver_id_len);
+    PRINTF("receiver_id: %s\n", ui_context.line2);
     os_memmove(ui_context.line3, signer_id, signer_id_len);
+    PRINTF("signer_id: %s\n", ui_context.line3);
+
+    // actions
+    uint32_t actions_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
+    PRINTF("actions_len: %d\n", actions_len);
+    processed += 4;
 
     // TODO: Parse more than one action
     uint8_t action_type = *((uint8_t *) &tmp_ctx.signing_context.buffer[processed]);
     processed += 1;
 
     // transfer
+    PRINTF("action_type: %d\n", action_type);
+
     if (action_type == 3) {
         // NOTE: Have to copy to have word-aligned array (otherwise crashing on read)
         // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
