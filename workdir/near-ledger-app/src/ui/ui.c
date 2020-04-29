@@ -189,7 +189,11 @@ void menu_sign_init() {
 
     // transfer
     if (action_type == 3) {
-        format_long_decimal_amount(8, &tmp_ctx.signing_context.buffer[processed], ui_context.line1, 24);
+        // NOTE: Have to copy to have word-aligned array (otherwise crashing on read)
+        // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
+        uint16_t amount[8];
+        os_memmove(amount, &tmp_ctx.signing_context.buffer[processed], 16);
+        format_long_decimal_amount(8, amount, ui_context.line1, 24);
 
         processed += 16;
 
