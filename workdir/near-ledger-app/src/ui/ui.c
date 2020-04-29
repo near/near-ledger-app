@@ -58,16 +58,16 @@ void ui_idle() {
  Adapted from https://en.wikipedia.org/wiki/Double_dabble#C_implementation 
  Returns: length of resulting string or -1 for error
 */
-int format_long_int_amount(int n, uint16_t *arr, unsigned char *output) {
+int format_long_int_amount(int n, uint16_t *arr, size_t output_size, unsigned char *output) {
     int nbits = 16 * n;       /* length of arr in bits */
     int nscratch = nbits / 3; /* length of scratch in bytes */
-    char scratch[43] = {};
-    // TODO: Pass and check size of output, do not use temp buffer
-    if (nscratch >= sizeof(scratch)) {
-        // Scratch buffer is too small
+    if ((size_t) nscratch >= output_size) {
+        // Output buffer is too small
         output[0] = '\0';
         return -1;
     }
+
+    unsigned char *scratch = output;
 
     int i, j, k;
     int smin = nscratch - 2; /* speed optimization */
@@ -118,8 +118,15 @@ int format_long_int_amount(int n, uint16_t *arr, unsigned char *output) {
     return nscratch;
 }
 
-int format_long_decimal_amount(int n, uint16_t *arr, char *output, int nomination) {
-    int len = format_long_int_amount(n, arr, output);
+int format_long_decimal_amount(int n, uint16_t *arr, size_t output_size, unsigned char *output, int nomination) {
+    int len = format_long_int_amount(n, arr, output_size, output);
+
+    if (len < 0 || (size_t) len + 2 > output_size) {
+        // Output buffer is too small
+        output[0] = '\0';
+        return -1;
+    }
+
     if (len <= nomination) {
         // < 1.0
         memmove(output + 2 + (nomination - len), output, len);
@@ -142,6 +149,21 @@ int format_long_decimal_amount(int n, uint16_t *arr, char *output, int nominatio
     }
 
     return len;
+}
+
+void strcpy_ellipsis(size_t dst_size, unsigned char *dst, size_t src_size, unsigned char *src) {
+    // TODO: Should dst have 0 terminator?
+    if (dst_size >= src_size) {
+        os_memmove(dst, src, src_size);
+        return;
+    }
+
+    os_memmove(dst, src, dst_size);
+    size_t ellipsis_start = dst_size >= 3 ? dst_size - 3 : 0;
+    for (size_t i = ellipsis_start; i < dst_size; i++) {
+        dst[i] = '.';
+    }
+    return;
 }
 
 // Show the transaction details for the user to approve
@@ -171,10 +193,9 @@ void menu_sign_init() {
     // block hash
     processed += 32;
 
-    // TODO: Make sure to trunc to max UI length
-    os_memmove(ui_context.line2, receiver_id, receiver_id_len);
+    strcpy_ellipsis(sizeof(ui_context.line2), ui_context.line2, receiver_id_len, receiver_id);
     PRINTF("receiver_id: %s\n", ui_context.line2);
-    os_memmove(ui_context.line3, signer_id, signer_id_len);
+    strcpy_ellipsis(sizeof(ui_context.line3), ui_context.line3, signer_id_len, signer_id);
     PRINTF("signer_id: %s\n", ui_context.line3);
 
     // actions
@@ -185,28 +206,39 @@ void menu_sign_init() {
     // TODO: Parse more than one action
     uint8_t action_type = *((uint8_t *) &tmp_ctx.signing_context.buffer[processed]);
     processed += 1;
-
-    // transfer
     PRINTF("action_type: %d\n", action_type);
 
+    // transfer
     if (action_type == 3) {
         // NOTE: Have to copy to have word-aligned array (otherwise crashing on read)
         // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
         uint16_t amount[8];
         os_memmove(amount, &tmp_ctx.signing_context.buffer[processed], 16);
-        format_long_decimal_amount(8, amount, ui_context.line1, 24);
+        format_long_decimal_amount(8, amount, sizeof(ui_context.line1), ui_context.line1, 24);
 
         processed += 16;
 
-        // TODO: Should step count be adjusted?
         // Set the step/step count, and ui_state before requesting the UI
-        ux_step = 0; ux_step_count = 9;
+        ux_step = 0; ux_step_count = 4;
         ui_state = UI_VERIFY;
 
         #if defined(TARGET_NANOS)
             UX_DISPLAY(ui_verify_transfer_nanos, ui_verify_transfer_prepro);
         #endif // #if TARGET_ID
         return;
+    }
+
+    // functionCall
+    if (action_type == 2) {
+        uint32_t method_name_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
+        processed += 4;
+        unsigned char *method_name = &tmp_ctx.signing_context.buffer[processed];
+        processed += method_name_len;
+
+        strcpy_ellipsis(sizeof(ui_context.line1), ui_context.line1, method_name_len, method_name);
+
+        // TODO: Show args / customize UI for functionCall
+        // TODO: Show deposit
     }
 
     ux_step = 0; ux_step_count = 3;
