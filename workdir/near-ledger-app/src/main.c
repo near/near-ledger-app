@@ -39,8 +39,8 @@ WIDE internal_storage_t N_storage_real;
 // SPI Buffer for io_event
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
-#if !defined(TARGET_NANOS) && !defined(TARGET_BLUE)
-#error This application only supports the Ledger Nano S and the Ledger Blue
+#if !defined(TARGET_NANOS)
+#error This application only supports the Ledger Nano S
 #endif
 
 unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
@@ -417,11 +417,6 @@ __attribute__((section(".boot"))) int main(void) {
 
                 USB_power(0);
                 USB_power(1);
-
-                // set menu bar colour for blue
-#if defined(TARGET_BLUE)
-                UX_SET_STATUS_BAR_COLOR(COLOR_BG_1, COLOR_APP);
-#endif // #if TARGET_ID
 
                 ui_idle();
 

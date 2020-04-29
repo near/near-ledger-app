@@ -28,11 +28,7 @@ APPVERSION_P=0
 
 APPNAME = "NEAR"
 APPVERSION = $(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
-ifeq ($(TARGET_NAME),TARGET_BLUE)
-ICONNAME = blue_app_waves.gif
-else
 ICONNAME = near_icon.gif
-endif
 
 APP_LOAD_PARAMS = --appFlags 0x40 --path "44'/397'" --curve secp256k1 --curve ed25519 $(COMMON_LOAD_PARAMS)
 

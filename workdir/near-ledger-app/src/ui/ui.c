@@ -22,14 +22,11 @@
 #include <stdbool.h>
 #include "../glyphs.h"
 #include "../main.h"
+
 #ifdef TARGET_NANOS
 #include "nanos/ui_menus_nanos.h"
 #include "nanos/ui_menus_buttons.h"
 #include "nanos/ui_menus_prepro.h"
-#endif
-#ifdef TARGET_BLUE
-#include "blue/ui_menus_blue.h"
-#include "blue/ui_menus_blue_prepro.h"
 #endif
 
 ux_state_t ux;
@@ -43,9 +40,7 @@ int ux_step, ux_step_count;
 void menu_address_init() {
     ux_step = 0;
     ux_step_count = 2;
-    #if defined(TARGET_BLUE)
-        UX_DISPLAY(ui_address_blue, ui_address_blue_prepro);
-    #elif defined(TARGET_NANOS)
+    #if defined(TARGET_NANOS)
         UX_DISPLAY(ui_address_nanos, ui_address_prepro);
     #endif // #if TARGET_ID
 }
@@ -54,9 +49,7 @@ void menu_address_init() {
 void ui_idle() {
     ux_step = 0; ux_step_count = 0;
     ui_state = UI_IDLE;
-    #if defined(TARGET_BLUE)
-        UX_DISPLAY(ui_idle_blue, ui_idle_blue_prepro);
-    #elif defined(TARGET_NANOS)
+    #if defined(TARGET_NANOS)
         UX_MENU_DISPLAY(0, menu_main, NULL);
     #endif // #if TARGET_ID
 }
@@ -210,9 +203,7 @@ void menu_sign_init() {
         ux_step = 0; ux_step_count = 9;
         ui_state = UI_VERIFY;
 
-        #if defined(TARGET_BLUE)
-            UX_DISPLAY(ui_verify_transfer_blue, NULL);
-        #elif defined(TARGET_NANOS)
+        #if defined(TARGET_NANOS)
             UX_DISPLAY(ui_verify_transfer_nanos, ui_verify_transfer_prepro);
         #endif // #if TARGET_ID
         return;
@@ -220,9 +211,7 @@ void menu_sign_init() {
 
     ux_step = 0; ux_step_count = 3;
     ui_state = UI_VERIFY;
-    #if defined(TARGET_BLUE)
-        UX_DISPLAY(ui_approval_blue, ui_approval_blue_prepro);
-    #elif defined(TARGET_NANOS)
+    #if defined(TARGET_NANOS)
         UX_DISPLAY(ui_verify_transaction_nanos, ui_verify_transaction_prepro);
     #endif // #if TARGET_ID
 }
