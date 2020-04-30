@@ -217,6 +217,7 @@ void handle_apdu(volatile unsigned int *flags, volatile unsigned int *tx, volati
 
                 os_memmove((char *) tmp_ctx.address_context.public_key, public_key.W, 32);
 
+                // TODO: Should we always confirm getting public key? Looks like potential privacy issue if we don't
                 if (G_io_apdu_buffer[2] == P1_NON_CONFIRM) {
                     *tx = set_result_get_address();
                     THROW(SW_OK);
