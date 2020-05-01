@@ -166,6 +166,12 @@ void strcpy_ellipsis(size_t dst_size, unsigned char *dst, size_t src_size, unsig
     return;
 }
 
+#define DISPLAY_VERIFY_UI(ui, step_count, prepro_fn) \
+    ux_step = 0; \
+    ux_step_count = step_count; \
+    ui_state = UI_VERIFY; \
+    UX_DISPLAY(ui, prepro_fn); \
+
 // Show the transaction details for the user to approve
 void menu_sign_init() {
     os_memset((unsigned char *) &ui_context, 0, sizeof(uiContext_t));
@@ -214,17 +220,10 @@ void menu_sign_init() {
         // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
         uint16_t amount[8];
         os_memmove(amount, &tmp_ctx.signing_context.buffer[processed], 16);
+        processed += 16;
         format_long_decimal_amount(8, amount, sizeof(ui_context.line1), ui_context.line1, 24);
 
-        processed += 16;
-
-        // Set the step/step count, and ui_state before requesting the UI
-        ux_step = 0; ux_step_count = 4;
-        ui_state = UI_VERIFY;
-
-        #if defined(TARGET_NANOS)
-            UX_DISPLAY(ui_verify_transfer_nanos, ui_verify_transfer_prepro);
-        #endif // #if TARGET_ID
+        DISPLAY_VERIFY_UI(ui_verify_transfer_nanos, 4, ui_verify_transfer_prepro);
         return;
     }
 
@@ -234,16 +233,32 @@ void menu_sign_init() {
         processed += 4;
         unsigned char *method_name = &tmp_ctx.signing_context.buffer[processed];
         processed += method_name_len;
-
         strcpy_ellipsis(sizeof(ui_context.line1), ui_context.line1, method_name_len, method_name);
 
-        // TODO: Show args / customize UI for functionCall
-        // TODO: Show deposit
+        uint32_t args_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
+        processed += 4;
+        unsigned char *args = &tmp_ctx.signing_context.buffer[processed];
+        processed += args_len;
+        if (args_len > 0 && args[0] == '{') {
+            // Args look like JSON
+            strcpy_ellipsis(sizeof(ui_context.line4), ui_context.line4, args_len, args);
+        } else {
+            // TODO: Hexdump args otherwise
+        }
+
+        // gas
+        processed += 8;
+
+        // NOTE: Have to copy to have word-aligned array (otherwise crashing on read)
+        // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
+        uint16_t amount[8];
+        os_memmove(amount, &tmp_ctx.signing_context.buffer[processed], 16);
+        processed += 16;
+        format_long_decimal_amount(8, amount, sizeof(ui_context.line5), ui_context.line5, 24);
+
+        DISPLAY_VERIFY_UI(ui_verify_function_call_nanos, 5, ui_verify_function_call_prepro);
+        return;
     }
 
-    ux_step = 0; ux_step_count = 3;
-    ui_state = UI_VERIFY;
-    #if defined(TARGET_NANOS)
-        UX_DISPLAY(ui_verify_transaction_nanos, ui_verify_transaction_prepro);
-    #endif // #if TARGET_ID
+    DISPLAY_VERIFY_UI(ui_verify_transaction_nanos, 3, ui_verify_transaction_prepro);
 }

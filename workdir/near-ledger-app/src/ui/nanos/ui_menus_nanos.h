@@ -44,7 +44,18 @@ const bagl_element_t ui_verify_transfer_nanos[] = {
     INFO_CELL(0x04, "From", (char *) ui_context.line3)
 };
 
-// TODO: Use macros to refactor these (as really just labels and ids are different)
+const bagl_element_t ui_verify_function_call_nanos[] = {
+    EMPTY_BG(),
+
+    LEFT_ICON(BAGL_GLYPH_ICON_CROSS),
+    RIGHT_ICON(BAGL_GLYPH_ICON_CHECK),
+
+    INFO_CELL(0x01, "Confirm", (char *) ui_context.line1),
+    INFO_CELL(0x02, "Deposit", (char *) ui_context.line5),
+    INFO_CELL(0x03, "To", (char *) ui_context.line2),
+    INFO_CELL(0x04, "From", (char *) ui_context.line3),
+    INFO_CELL(0x05, "Args", (char *) ui_context.line4)
+};
 
 const bagl_element_t ui_verify_transaction_nanos[] = {
     EMPTY_BG(),

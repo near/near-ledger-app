@@ -2,6 +2,8 @@
 
 #include "../ui.h"
 
+// TODO: These look repetitive and likely not matching what we want in terms of UX. Figure out how to refactor
+
 const bagl_element_t * ui_address_prepro(const bagl_element_t *element) {
     if (element->component.userid > 0) {
         unsigned int display = (ux_step == element->component.userid - 1);
@@ -40,6 +42,20 @@ const bagl_element_t * ui_verify_transfer_prepro(const bagl_element_t *element) 
         }
         if (!display)
              return NULL;
+    }
+    return element;
+}
+
+const bagl_element_t * ui_verify_function_call_prepro(const bagl_element_t *element) {
+    if (element->component.userid > 0) {
+        unsigned int display = (ux_step == element->component.userid - 1);
+        if (display) {
+            UX_CALLBACK_SET_INTERVAL(
+                MAX(2000, bagl_label_roundtrip_duration_ms(element, 7)));
+        }
+        if (!display) {
+             return NULL;
+        }
     }
     return element;
 }

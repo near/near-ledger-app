@@ -5,6 +5,7 @@
 
 const bagl_element_t * ui_address_prepro(const bagl_element_t *element);
 const bagl_element_t * ui_verify_transfer_prepro(const bagl_element_t *element);
+const bagl_element_t * ui_verify_function_call_prepro(const bagl_element_t *element);
 const bagl_element_t * ui_verify_transaction_prepro(const bagl_element_t *element);
 
 #endif
