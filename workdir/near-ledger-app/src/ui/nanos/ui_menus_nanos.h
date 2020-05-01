@@ -39,9 +39,9 @@ const bagl_element_t ui_verify_transfer_nanos[] = {
 
     // TODO: Why ui_context is using unsigned char*? Should we just use char* everywhere?
     INFO_CELL(0x01, "Confirm", "transfer"),
-    INFO_CELL(0x02, "Amount", (char *) ui_context.line1),
-    INFO_CELL(0x03, "To", (char *) ui_context.line2),
-    INFO_CELL(0x04, "From", (char *) ui_context.line3)
+    INFO_CELL(0x02, "Amount", ui_context.line1),
+    INFO_CELL(0x03, "To", ui_context.line2),
+    INFO_CELL(0x04, "From", ui_context.line3)
 };
 
 const bagl_element_t ui_verify_function_call_nanos[] = {
@@ -50,11 +50,11 @@ const bagl_element_t ui_verify_function_call_nanos[] = {
     LEFT_ICON(BAGL_GLYPH_ICON_CROSS),
     RIGHT_ICON(BAGL_GLYPH_ICON_CHECK),
 
-    INFO_CELL(0x01, "Confirm", (char *) ui_context.line1),
-    INFO_CELL(0x02, "Deposit", (char *) ui_context.line5),
-    INFO_CELL(0x03, "To", (char *) ui_context.line2),
-    INFO_CELL(0x04, "From", (char *) ui_context.line3),
-    INFO_CELL(0x05, "Args", (char *) ui_context.line4)
+    INFO_CELL(0x01, "Confirm", ui_context.line1),
+    INFO_CELL(0x02, "Deposit", ui_context.line5),
+    INFO_CELL(0x03, "To", ui_context.line2),
+    INFO_CELL(0x04, "From", ui_context.line3),
+    INFO_CELL(0x05, "Args", ui_context.line4)
 };
 
 const bagl_element_t ui_verify_transaction_nanos[] = {
@@ -63,9 +63,9 @@ const bagl_element_t ui_verify_transaction_nanos[] = {
     LEFT_ICON(BAGL_GLYPH_ICON_CROSS),
     RIGHT_ICON(BAGL_GLYPH_ICON_CHECK),
 
-    INFO_CELL(0x01, "Confirm", (char *) ui_context.line1),
-    INFO_CELL(0x02, "To", (char *) ui_context.line2),
-    INFO_CELL(0x03, "From", (char *) ui_context.line3)
+    INFO_CELL(0x01, "Confirm", ui_context.line1),
+    INFO_CELL(0x02, "To", ui_context.line2),
+    INFO_CELL(0x03, "From", ui_context.line3)
 };
 
 const ux_menu_entry_t menu_about[];

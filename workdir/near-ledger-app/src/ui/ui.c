@@ -58,24 +58,31 @@ void ui_idle() {
  Adapted from https://en.wikipedia.org/wiki/Double_dabble#C_implementation 
  Returns: length of resulting string or -1 for error
 */
-int format_long_int_amount(int n, uint16_t *arr, size_t output_size, unsigned char *output) {
-    int nbits = 16 * n;       /* length of arr in bits */
-    int nscratch = nbits / 3; /* length of scratch in bytes */
-    if ((size_t) nscratch >= output_size) {
+int format_long_int_amount(size_t input_size, char *input, size_t output_size, char *output) {
+    // NOTE: Have to copy to have word-aligned array (otherwise crashing on read)
+    // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
+    uint16_t aligned_amount[8];
+    os_memmove(aligned_amount, input, 16);
+    // Convert size in bytes into words
+    size_t n = input_size / 2;
+
+    size_t nbits = 16 * n;       /* length of arr in bits */
+    size_t nscratch = nbits / 3; /* length of scratch in bytes */
+    if (nscratch >= output_size) {
         // Output buffer is too small
         output[0] = '\0';
         return -1;
     }
 
-    unsigned char *scratch = output;
+    char *scratch = output;
 
-    int i, j, k;
-    int smin = nscratch - 2; /* speed optimization */
+    size_t i, j, k;
+    size_t smin = nscratch - 2; /* speed optimization */
 
     for (i = 0; i < n; ++i) {
         for (j = 0; j < 16; ++j) {
             /* This bit will be shifted in on the right. */
-            int shifted_in = (arr[n - i - 1] & (1 << (15 - j))) ? 1 : 0;
+            int shifted_in = (aligned_amount[n - i - 1] & (1 << (15 - j))) ? 1 : 0;
 
             /* Add 3 everywhere that scratch[k] >= 5. */
             for (k = smin; k < nscratch; ++k) {
@@ -118,8 +125,8 @@ int format_long_int_amount(int n, uint16_t *arr, size_t output_size, unsigned ch
     return nscratch;
 }
 
-int format_long_decimal_amount(int n, uint16_t *arr, size_t output_size, unsigned char *output, int nomination) {
-    int len = format_long_int_amount(n, arr, output_size, output);
+int format_long_decimal_amount(size_t input_size, char *input, size_t output_size, char *output, int nomination) {
+    int len = format_long_int_amount(input_size, input, output_size, output);
 
     if (len < 0 || (size_t) len + 2 > output_size) {
         // Output buffer is too small
@@ -151,7 +158,15 @@ int format_long_decimal_amount(int n, uint16_t *arr, size_t output_size, unsigne
     return len;
 }
 
-void strcpy_ellipsis(size_t dst_size, unsigned char *dst, size_t src_size, unsigned char *src) {
+void borsh_read_buffer(uint32_t *buffer_len, char **buffer, unsigned int *processed) {
+    *buffer_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[*processed]);
+    *processed += 4;
+    *buffer = &tmp_ctx.signing_context.buffer[*processed];
+    *processed += *buffer_len;
+    // TODO: Buffer size/length check
+}
+
+void strcpy_ellipsis(size_t dst_size, char *dst, size_t src_size, char *src) {
     // TODO: Should dst have 0 terminator?
     if (dst_size >= src_size) {
         os_memmove(dst, src, src_size);
@@ -174,16 +189,18 @@ void strcpy_ellipsis(size_t dst_size, unsigned char *dst, size_t src_size, unsig
 
 // Show the transaction details for the user to approve
 void menu_sign_init() {
-    os_memset((unsigned char *) &ui_context, 0, sizeof(uiContext_t));
+    os_memset(&ui_context, 0, sizeof(uiContext_t));
 
     // TODO: Validate data when parsing tx
 
     unsigned int processed = 0;
-    
-    uint32_t signer_id_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
-    processed += 4;
-    unsigned char *signer_id = &tmp_ctx.signing_context.buffer[processed];
-    processed += signer_id_len;
+
+    // signer
+    uint32_t signer_id_len;
+    char *signer_id;
+    borsh_read_buffer(&signer_id_len, &signer_id, &processed);
+    strcpy_ellipsis(sizeof(ui_context.line3), ui_context.line3, signer_id_len, signer_id);
+    PRINTF("signer_id: %s\n", ui_context.line3);
 
     // public key
     processed += 33;
@@ -191,18 +208,15 @@ void menu_sign_init() {
     // nonce
     processed += 8;
 
-    uint32_t receiver_id_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
-    processed += 4;
-    unsigned char *receiver_id = &tmp_ctx.signing_context.buffer[processed];
-    processed += receiver_id_len;
+    // receiver 
+    uint32_t receiver_id_len;
+    char *receiver_id;
+    borsh_read_buffer(&receiver_id_len, &receiver_id, &processed);
+    strcpy_ellipsis(sizeof(ui_context.line2), ui_context.line2, receiver_id_len, receiver_id);
+    PRINTF("receiver_id: %s\n", ui_context.line2);
 
     // block hash
     processed += 32;
-
-    strcpy_ellipsis(sizeof(ui_context.line2), ui_context.line2, receiver_id_len, receiver_id);
-    PRINTF("receiver_id: %s\n", ui_context.line2);
-    strcpy_ellipsis(sizeof(ui_context.line3), ui_context.line3, signer_id_len, signer_id);
-    PRINTF("signer_id: %s\n", ui_context.line3);
 
     // actions
     uint32_t actions_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
@@ -210,18 +224,16 @@ void menu_sign_init() {
     processed += 4;
 
     // TODO: Parse more than one action
+    // action type
     uint8_t action_type = *((uint8_t *) &tmp_ctx.signing_context.buffer[processed]);
     processed += 1;
     PRINTF("action_type: %d\n", action_type);
 
     // transfer
     if (action_type == 3) {
-        // NOTE: Have to copy to have word-aligned array (otherwise crashing on read)
-        // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
-        uint16_t amount[8];
-        os_memmove(amount, &tmp_ctx.signing_context.buffer[processed], 16);
+        char *amount = &tmp_ctx.signing_context.buffer[processed];
         processed += 16;
-        format_long_decimal_amount(8, amount, sizeof(ui_context.line1), ui_context.line1, 24);
+        format_long_decimal_amount(16, amount, sizeof(ui_context.line1), ui_context.line1, 24);
 
         DISPLAY_VERIFY_UI(ui_verify_transfer_nanos, 4, ui_verify_transfer_prepro);
         return;
@@ -229,19 +241,20 @@ void menu_sign_init() {
 
     // functionCall
     if (action_type == 2) {
-        uint32_t method_name_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
-        processed += 4;
-        unsigned char *method_name = &tmp_ctx.signing_context.buffer[processed];
-        processed += method_name_len;
+        // method name
+        uint32_t method_name_len;
+        char *method_name;
+        borsh_read_buffer(&method_name_len, &method_name, &processed);
         strcpy_ellipsis(sizeof(ui_context.line1), ui_context.line1, method_name_len, method_name);
 
-        uint32_t args_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
-        processed += 4;
-        unsigned char *args = &tmp_ctx.signing_context.buffer[processed];
-        processed += args_len;
+        // args
+        uint32_t args_len;
+        char *args;
+        borsh_read_buffer(&args_len, &args, &processed);
         if (args_len > 0 && args[0] == '{') {
             // Args look like JSON
             strcpy_ellipsis(sizeof(ui_context.line4), ui_context.line4, args_len, args);
+            PRINTF("args: %s\n", ui_context.line4);
         } else {
             // TODO: Hexdump args otherwise
         }
@@ -249,12 +262,10 @@ void menu_sign_init() {
         // gas
         processed += 8;
 
-        // NOTE: Have to copy to have word-aligned array (otherwise crashing on read)
-        // Lots of time has been lost debugging this, make sure to avoid unaligned RAM access (as compiler in BOLOS SDK won't)
-        uint16_t amount[8];
-        os_memmove(amount, &tmp_ctx.signing_context.buffer[processed], 16);
+        // deposit
+        char *deposit = &tmp_ctx.signing_context.buffer[processed];
         processed += 16;
-        format_long_decimal_amount(8, amount, sizeof(ui_context.line5), ui_context.line5, 24);
+        format_long_decimal_amount(16, deposit, sizeof(ui_context.line5), ui_context.line5, 24);
 
         DISPLAY_VERIFY_UI(ui_verify_function_call_nanos, 5, ui_verify_function_call_prepro);
         return;
