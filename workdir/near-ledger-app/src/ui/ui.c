@@ -181,11 +181,35 @@ void strcpy_ellipsis(size_t dst_size, char *dst, size_t src_size, char *src) {
     return;
 }
 
+#define BORSH_DISPLAY_STRING(var_name, ui_line) \
+    uint32_t var_name##_len; \
+    char *var_name; \
+    borsh_read_buffer(&var_name##_len, &var_name, &processed); \
+    strcpy_ellipsis(sizeof(ui_line), ui_line, var_name##_len, var_name); \
+    PRINTF("%s: %s\n", #var_name, ui_line);
+
+#define BORSH_DISPLAY_AMOUNT(var_name, ui_line) \
+    char *var_name = &tmp_ctx.signing_context.buffer[processed]; \
+    processed += 16; \
+    format_long_decimal_amount(16, var_name, sizeof(ui_context.line1), ui_context.line1, 24);
+
 #define DISPLAY_VERIFY_UI(ui, step_count, prepro_fn) \
     ux_step = 0; \
     ux_step_count = step_count; \
     ui_state = UI_VERIFY; \
     UX_DISPLAY(ui, prepro_fn); \
+
+typedef enum {
+    at_create_account,
+    at_deploy_contract,
+    at_function_call,
+    at_transfer,
+    at_stake,
+    at_add_key,
+    at_delete_key,
+    at_delete_account,
+    at_last_value = at_delete_account
+} action_type_t;
 
 // Show the transaction details for the user to approve
 void menu_sign_init() {
@@ -196,11 +220,7 @@ void menu_sign_init() {
     unsigned int processed = 0;
 
     // signer
-    uint32_t signer_id_len;
-    char *signer_id;
-    borsh_read_buffer(&signer_id_len, &signer_id, &processed);
-    strcpy_ellipsis(sizeof(ui_context.line3), ui_context.line3, signer_id_len, signer_id);
-    PRINTF("signer_id: %s\n", ui_context.line3);
+    BORSH_DISPLAY_STRING(signer_id, ui_context.line3);
 
     // public key
     processed += 33;
@@ -209,11 +229,7 @@ void menu_sign_init() {
     processed += 8;
 
     // receiver 
-    uint32_t receiver_id_len;
-    char *receiver_id;
-    borsh_read_buffer(&receiver_id_len, &receiver_id, &processed);
-    strcpy_ellipsis(sizeof(ui_context.line2), ui_context.line2, receiver_id_len, receiver_id);
-    PRINTF("receiver_id: %s\n", ui_context.line2);
+    BORSH_DISPLAY_STRING(receiver_id, ui_context.line2);
 
     // block hash
     processed += 32;
@@ -229,23 +245,20 @@ void menu_sign_init() {
     processed += 1;
     PRINTF("action_type: %d\n", action_type);
 
+    // TODO: assert action_type <= at_last_value
+
     // transfer
-    if (action_type == 3) {
-        char *amount = &tmp_ctx.signing_context.buffer[processed];
-        processed += 16;
-        format_long_decimal_amount(16, amount, sizeof(ui_context.line1), ui_context.line1, 24);
+    if (action_type == at_transfer) {
+        BORSH_DISPLAY_AMOUNT(amount, ui_context.line1);
 
         DISPLAY_VERIFY_UI(ui_verify_transfer_nanos, 4, ui_verify_transfer_prepro);
         return;
     }
 
     // functionCall
-    if (action_type == 2) {
+    if (action_type == at_function_call) {
         // method name
-        uint32_t method_name_len;
-        char *method_name;
-        borsh_read_buffer(&method_name_len, &method_name, &processed);
-        strcpy_ellipsis(sizeof(ui_context.line1), ui_context.line1, method_name_len, method_name);
+        BORSH_DISPLAY_STRING(method_name, ui_context.line1);
 
         // args
         uint32_t args_len;
@@ -263,9 +276,7 @@ void menu_sign_init() {
         processed += 8;
 
         // deposit
-        char *deposit = &tmp_ctx.signing_context.buffer[processed];
-        processed += 16;
-        format_long_decimal_amount(16, deposit, sizeof(ui_context.line5), ui_context.line5, 24);
+        BORSH_DISPLAY_AMOUNT(deposit, ui_context.line5);
 
         DISPLAY_VERIFY_UI(ui_verify_function_call_nanos, 5, ui_verify_function_call_prepro);
         return;
