@@ -19,8 +19,8 @@
 #define INFO_CELL(id, title, info)  \
     {{BAGL_LABELINE, id, 0, 12, 128, 12, 0, 0, 0, 0xFFFFFF, 0x000000, \
       BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0}, title}, \
-    {{BAGL_LABELINE, id, 23, 26, 82, 12, 0x80 | 10, 0, 0, 0xFFFFFF, 0x000000, \
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0}, info}
+    {{BAGL_LABELINE, id, 23, 26, 82, 12, BAGL_STROKE_FLAG_ONESHOT | 10, 0, 0, 0xFFFFFF, 0x000000, \
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26}, info}
 
 const bagl_element_t ui_address_nanos[] = {
     EMPTY_BG(),
