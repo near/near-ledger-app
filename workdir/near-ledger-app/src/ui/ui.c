@@ -2,7 +2,7 @@
 /*******************************************************************************
 *   Burstcoin Wallet App for Nano Ledger S. Updated By Waves community.
 *   Copyright (c) 2017-2018 Jake B.
-* 
+*
 *   Based on Sample code provided and (c) 2016 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +55,7 @@ void ui_idle() {
 }
 
 /*
- Adapted from https://en.wikipedia.org/wiki/Double_dabble#C_implementation 
+ Adapted from https://en.wikipedia.org/wiki/Double_dabble#C_implementation
  Returns: length of resulting string or -1 for error
 */
 int format_long_int_amount(size_t input_size, char *input, size_t output_size, char *output) {
@@ -228,7 +228,7 @@ void menu_sign_init() {
     // nonce
     processed += 8;
 
-    // receiver 
+    // receiver
     BORSH_DISPLAY_STRING(receiver_id, ui_context.line2);
 
     // block hash
@@ -280,6 +280,43 @@ void menu_sign_init() {
 
         DISPLAY_VERIFY_UI(ui_verify_function_call_nanos, 5, ui_verify_function_call_prepro);
         return;
+    }
+
+    // add key
+    if (action_type == at_add_key) {
+        // public key
+
+        // key type
+        processed += 1; // TODO: assert ed25519 key type
+
+        // key data
+        char *data = &tmp_ctx.signing_context.buffer[processed];
+        processed += 32;
+        // TODO: Display Base58 key?
+
+        // access key
+
+        // nonce
+        processed += 8;
+
+        // permission
+        uint8_t permission_type = *((uint8_t *) &tmp_ctx.signing_context.buffer[processed]);
+        if (permission_type == 0) {
+            // function call
+
+            // allowance
+            BORSH_DISPLAY_AMOUNT(allowance, ui_context.line5);
+
+            // receiver
+            BORSH_DISPLAY_STRING(permission_receiver_id, ui_context.line2);
+
+            // TODO: read method names array
+            // TODO: Need to display one (multiple not supported yet – can just display "multiple methods")
+        } else {
+            // full access
+
+            // TODO: Display big fat warning
+        }
     }
 
     DISPLAY_VERIFY_UI(ui_verify_transaction_nanos, 3, ui_verify_transaction_prepro);
