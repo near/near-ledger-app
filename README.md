@@ -5,7 +5,7 @@ Based on https://github.com/ZondaX/ledger-docker-bolos (MIT license) and https:/
 ## Requirements
 
 * Docker installed
-* Python 4 installed
+* Python 3 installed
 * A Ledger Nano
 
 ## Steps to get this to work
@@ -23,8 +23,18 @@ Based on https://github.com/ZondaX/ledger-docker-bolos (MIT license) and https:/
 6. `cd` into `workdir/near-ledger-app` (in Docker) 
 7. Run `make` (in Docker).
 8. `cd` into `workdir/near-ledger-app` (in local env) 
-9. Run `pip install ledgerblue`
-10. Run `make load-only` with the ledger app plugged in. If you get an error, you may need to also set the following env var:
+9. Create virtual environment to use python3 and install dependencies (install `pip` - install it via `brew`):
+
+```bash
+pip install virtualenv
+virtualenv .env --python=python3
+. .env/bin/activate
+```
+
+10. Run `pip install ledgerblue`
+11. On Ledger open "Install app".
+12. Run `make load-only` with the ledger app plugged in.
+If you get an error, you may need to also set the following env var:
   
   ```bash
   export SCP_PRIVKEY=""
