@@ -34,6 +34,7 @@ virtualenv .env --python=python3
 10. Run `pip install ledgerblue`
 11. On Ledger open "Install app".
 12. Run `make load-only` with the ledger app plugged in.
+13. Accept the "insecure" app onto your ledger (!) by clicking through the prompts.
 If you get an error, you may need to also set the following env var:
   
   ```bash
