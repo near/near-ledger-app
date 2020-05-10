@@ -39,7 +39,7 @@ int ux_step, ux_step_count;
 
 void menu_address_init() {
     ux_step = 0;
-    ux_step_count = 2;
+    ux_step_count = 1;
     #if defined(TARGET_NANOS)
         UX_DISPLAY(ui_address_nanos, ui_address_prepro);
     #endif // #if TARGET_ID

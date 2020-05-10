@@ -29,8 +29,6 @@
 #define INS_SIGN 0x02           // Sign Instruction
 #define INS_GET_PUBLIC_KEY 0x04 // Get Public Key Instruction
 #define INS_GET_APP_CONFIGURATION 0x06 // Get App Version
-#define P1_CONFIRM 0x01         // Show address confirmation
-#define P1_NON_CONFIRM 0x00     // Don't show address confirmation
 #define P1_LAST 0x80            // Parameter 1 = End of Bytes to Sign (finalize)
 #define P1_MORE 0x00            // Parameter 1 = More bytes coming
 
