@@ -167,17 +167,18 @@ void borsh_read_buffer(uint32_t *buffer_len, char **buffer, unsigned int *proces
 }
 
 void strcpy_ellipsis(size_t dst_size, char *dst, size_t src_size, char *src) {
-    // TODO: Should dst have 0 terminator?
-    if (dst_size >= src_size) {
+    if (dst_size >= src_size + 1) {
         os_memmove(dst, src, src_size);
+        dst[src_size] = 0;
         return;
     }
 
     os_memmove(dst, src, dst_size);
-    size_t ellipsis_start = dst_size >= 3 ? dst_size - 3 : 0;
+    size_t ellipsis_start = dst_size >= 4 ? dst_size - 4 : 0;
     for (size_t i = ellipsis_start; i < dst_size; i++) {
         dst[i] = '.';
     }
+    dst[dst_size - 1] = 0;
     return;
 }
 
