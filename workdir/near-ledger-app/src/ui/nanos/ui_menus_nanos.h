@@ -37,7 +37,6 @@ const bagl_element_t ui_verify_transfer_nanos[] = {
     LEFT_ICON(BAGL_GLYPH_ICON_CROSS),
     RIGHT_ICON(BAGL_GLYPH_ICON_CHECK),
 
-    // TODO: Why ui_context is using unsigned char*? Should we just use char* everywhere?
     INFO_CELL(0x01, "Confirm", "transfer"),
     INFO_CELL(0x02, "Amount", ui_context.line1),
     INFO_CELL(0x03, "To", ui_context.line2),
