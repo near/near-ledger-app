@@ -158,12 +158,39 @@ int format_long_decimal_amount(size_t input_size, char *input, size_t output_siz
     return len;
 }
 
-void borsh_read_buffer(uint32_t *buffer_len, char **buffer, unsigned int *processed) {
-    *buffer_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[*processed]);
+void check_overflow(unsigned int processed, unsigned int size) {
+    PRINTF("check_overflow %d %d %d\n", processed, size, tmp_ctx.signing_context.buffer_used);
+    if (size >= tmp_ctx.signing_context.buffer_used || processed + size >= tmp_ctx.signing_context.buffer_used) {
+        THROW(SW_BUFFER_OVERFLOW);
+    }
+}
+
+uint8_t borsh_read_uint8(unsigned int *processed) {
+    check_overflow(*processed, 1);
+    uint8_t result = *((uint8_t *) &tmp_ctx.signing_context.buffer[*processed]);
+    *processed += 1;
+    return result;
+}
+
+uint32_t borsh_read_uint32(unsigned int *processed) {
+    check_overflow(*processed, 4);
+    uint32_t result = *((uint32_t *) &tmp_ctx.signing_context.buffer[*processed]);
     *processed += 4;
+    return result;
+}
+
+void borsh_read_buffer(uint32_t *buffer_len, char **buffer, unsigned int *processed) {
+    *buffer_len = borsh_read_uint32(processed);
+    check_overflow(*processed, *buffer_len);
     *buffer = &tmp_ctx.signing_context.buffer[*processed];
     *processed += *buffer_len;
-    // TODO: Buffer size/length check
+}
+
+char *borsh_read_fixed_buffer(unsigned int buffer_len, unsigned int *processed) {
+    check_overflow(*processed, buffer_len);
+    char *buffer = &tmp_ctx.signing_context.buffer[*processed];
+    *processed += buffer_len;
+    return buffer;
 }
 
 void strcpy_ellipsis(size_t dst_size, char *dst, size_t src_size, char *src) {
@@ -181,6 +208,10 @@ void strcpy_ellipsis(size_t dst_size, char *dst, size_t src_size, char *src) {
     dst[dst_size - 1] = 0;
     return;
 }
+
+#define BORSH_SKIP(size) \
+    check_overflow(processed, size); \
+    processed += size;
 
 #define BORSH_DISPLAY_STRING(var_name, ui_line) \
     uint32_t var_name##_len; \
@@ -224,26 +255,24 @@ void menu_sign_init() {
     BORSH_DISPLAY_STRING(signer_id, ui_context.line3);
 
     // public key
-    processed += 33;
+    BORSH_SKIP(33);
 
     // nonce
-    processed += 8;
+    BORSH_SKIP(8);
 
     // receiver
     BORSH_DISPLAY_STRING(receiver_id, ui_context.line2);
 
     // block hash
-    processed += 32;
+    BORSH_SKIP(32);
 
     // actions
-    uint32_t actions_len = *((uint32_t *) &tmp_ctx.signing_context.buffer[processed]);
+    uint32_t actions_len = borsh_read_uint32(&processed);
     PRINTF("actions_len: %d\n", actions_len);
-    processed += 4;
 
     // TODO: Parse more than one action
     // action type
-    uint8_t action_type = *((uint8_t *) &tmp_ctx.signing_context.buffer[processed]);
-    processed += 1;
+    uint8_t action_type = borsh_read_uint8(&processed);
     PRINTF("action_type: %d\n", action_type);
 
     // TODO: assert action_type <= at_last_value
@@ -274,7 +303,7 @@ void menu_sign_init() {
         }
 
         // gas
-        processed += 8;
+        BORSH_SKIP(8);
 
         // deposit
         BORSH_DISPLAY_AMOUNT(deposit, ui_context.line5);
@@ -288,25 +317,28 @@ void menu_sign_init() {
         // public key
 
         // key type
-        processed += 1; // TODO: assert ed25519 key type
+        BORSH_SKIP(1);
+        // TODO: assert ed25519 key type
 
         // key data
-        char *data = &tmp_ctx.signing_context.buffer[processed];
-        processed += 32;
+        char *data = borsh_read_fixed_buffer(32, &processed);
         // TODO: Display Base58 key?
 
         // access key
 
         // nonce
-        processed += 8;
+        BORSH_SKIP(8);
 
         // permission
-        uint8_t permission_type = *((uint8_t *) &tmp_ctx.signing_context.buffer[processed]);
+        uint8_t permission_type = borsh_read_uint8(&processed);
         if (permission_type == 0) {
             // function call
 
             // allowance
             BORSH_DISPLAY_AMOUNT(allowance, ui_context.line5);
+
+
+            PRINTF("remaining buffer: %.*h\n", tmp_ctx.signing_context.buffer_used - processed, &tmp_ctx.signing_context.buffer[processed]);
 
             // receiver
             BORSH_DISPLAY_STRING(permission_receiver_id, ui_context.line2);
