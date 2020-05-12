@@ -234,6 +234,9 @@ void strcpy_ellipsis(size_t dst_size, char *dst, size_t src_size, char *src) {
     ui_state = UI_VERIFY; \
     UX_DISPLAY(ui, prepro_fn); \
 
+#define COPY_LITERAL(dst, src) \
+    os_memmove(dst, src, sizeof(src))
+
 typedef enum {
     at_create_account,
     at_deploy_contract,
@@ -317,6 +320,8 @@ void menu_sign_init() {
 
     // add key
     if (action_type == at_add_key) {
+        // TODO: Assert that sender/receiver are the same?
+
         // public key
 
         // key type
@@ -334,6 +339,7 @@ void menu_sign_init() {
 
         // permission
         uint8_t permission_type = borsh_read_uint8(&processed);
+        PRINTF("permission_type: %d\n", permission_type);
         if (permission_type == 0) {
             // function call
 
@@ -341,6 +347,8 @@ void menu_sign_init() {
             uint8_t has_allowance = borsh_read_uint8(&processed);
             if (has_allowance) {
                 BORSH_DISPLAY_AMOUNT(allowance, ui_context.line5);
+            } else {
+                COPY_LITERAL(ui_context.line5, "Unlimited");
             }
 
             // receiver
@@ -348,10 +356,13 @@ void menu_sign_init() {
 
             // TODO: read method names array
             // TODO: Need to display one (multiple not supported yet – can just display "multiple methods")
+            DISPLAY_VERIFY_UI(ui_verify_add_function_call_access_key, 4, simple_scroll_prepro);
+            return;
         } else {
             // full access
 
-            // TODO: Display big fat warning
+            DISPLAY_VERIFY_UI(ui_verify_add_full_access_key, 2, simple_scroll_prepro);
+            return;
         }
     }
 

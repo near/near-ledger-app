@@ -13,6 +13,14 @@ unsigned int ui_verify_function_call_nanos_button(unsigned int button_mask, unsi
     return ui_verify_transaction_nanos_button(button_mask, button_mask_counter);
 }
 
+unsigned int ui_verify_add_function_call_access_key_button(unsigned int button_mask, unsigned int button_mask_counter) {
+    return ui_verify_transaction_nanos_button(button_mask, button_mask_counter);
+}
+
+unsigned int ui_verify_add_full_access_key_button(unsigned int button_mask, unsigned int button_mask_counter) {
+    return ui_verify_transaction_nanos_button(button_mask, button_mask_counter);
+}
+
 unsigned int ui_verify_transaction_nanos_button(unsigned int button_mask, unsigned int button_mask_counter) {
     switch (button_mask) {
         case BUTTON_EVT_RELEASED | BUTTON_LEFT: // CANCEL

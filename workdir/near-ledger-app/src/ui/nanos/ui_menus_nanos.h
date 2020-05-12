@@ -56,6 +56,28 @@ const bagl_element_t ui_verify_function_call_nanos[] = {
     INFO_CELL(0x05, "Args", ui_context.line4)
 };
 
+const bagl_element_t ui_verify_add_function_call_access_key[] = {
+    EMPTY_BG(),
+
+    LEFT_ICON(BAGL_GLYPH_ICON_CROSS),
+    RIGHT_ICON(BAGL_GLYPH_ICON_CHECK),
+
+    INFO_CELL(0x01, "Confirm", "add key"),
+    INFO_CELL(0x02, "To Account", ui_context.line3),
+    INFO_CELL(0x03, "Contract", ui_context.line2),
+    INFO_CELL(0x04, "Allowance", ui_context.line1)
+};
+
+const bagl_element_t ui_verify_add_full_access_key[] = {
+    EMPTY_BG(),
+
+    LEFT_ICON(BAGL_GLYPH_ICON_CROSS),
+    RIGHT_ICON(BAGL_GLYPH_ICON_CHECK),
+
+    INFO_CELL(0x01, "DANGER", "This gives full access to a device other than Ledger"),
+    INFO_CELL(0x02, "For Contract", ui_context.line2)
+};
+
 const bagl_element_t ui_verify_transaction_nanos[] = {
     EMPTY_BG(),
 
