@@ -113,7 +113,7 @@ int format_long_int_amount(size_t input_size, char *input, size_t output_size, c
         }
     }
     nscratch -= k;
-    memmove(scratch, scratch + k, nscratch + 1);
+    os_memmove(scratch, scratch + k, nscratch + 1);
 
     /* Convert the scratch space from BCD digits to ASCII. */
     for (k = 0; k < nscratch; ++k) {
@@ -121,7 +121,7 @@ int format_long_int_amount(size_t input_size, char *input, size_t output_size, c
     }
 
     /* Resize and return */
-    memmove(output, scratch, nscratch + 1);
+    os_memmove(output, scratch, nscratch + 1);
     return nscratch;
 }
 
@@ -136,15 +136,15 @@ int format_long_decimal_amount(size_t input_size, char *input, size_t output_siz
 
     if (len <= nomination) {
         // < 1.0
-        memmove(output + 2 + (nomination - len), output, len);
-        memset(output + 2, '0', (nomination - len));
+        os_memmove(output + 2 + (nomination - len), output, len);
+        os_memset(output + 2, '0', (nomination - len));
         output[0] = '0';
         output[1] = '.';
         len = nomination + 2;
     } else {
         // >= 1.0
         int int_len = len - nomination;
-        memmove(output + int_len + 1, output + int_len, nomination);
+        os_memmove(output + int_len + 1, output + int_len, nomination);
         output[int_len] = '.';
         len = len + 1;
     }
