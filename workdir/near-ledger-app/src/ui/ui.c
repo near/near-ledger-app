@@ -165,6 +165,9 @@ void check_overflow(unsigned int processed, unsigned int size) {
     }
 }
 
+#define PRINT_REMAINING_BUFFER() \
+    PRINTF("remaining buffer: %.*h\n", tmp_ctx.signing_context.buffer_used - processed, &tmp_ctx.signing_context.buffer[processed]);
+
 uint8_t borsh_read_uint8(unsigned int *processed) {
     check_overflow(*processed, 1);
     uint8_t result = *((uint8_t *) &tmp_ctx.signing_context.buffer[*processed]);
@@ -335,10 +338,10 @@ void menu_sign_init() {
             // function call
 
             // allowance
-            BORSH_DISPLAY_AMOUNT(allowance, ui_context.line5);
-
-
-            PRINTF("remaining buffer: %.*h\n", tmp_ctx.signing_context.buffer_used - processed, &tmp_ctx.signing_context.buffer[processed]);
+            uint8_t has_allowance = borsh_read_uint8(&processed);
+            if (has_allowance) {
+                BORSH_DISPLAY_AMOUNT(allowance, ui_context.line5);
+            }
 
             // receiver
             BORSH_DISPLAY_STRING(permission_receiver_id, ui_context.line2);
@@ -351,6 +354,8 @@ void menu_sign_init() {
             // TODO: Display big fat warning
         }
     }
+
+    PRINT_REMAINING_BUFFER();
 
     DISPLAY_VERIFY_UI(ui_verify_transaction_nanos, 3, ui_verify_transaction_prepro);
 }
