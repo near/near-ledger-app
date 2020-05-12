@@ -33,8 +33,6 @@ extern ux_state_t ux;
 enum UI_STATE { UI_IDLE, UI_VERIFY };
 extern enum UI_STATE ui_state;
 
-static const unsigned char WAVES_CONST[] = "Waves";
-
 void menu_sign_init();
 void ui_idle();
 
@@ -43,13 +41,4 @@ extern int ux_step_count;
 
 void menu_address_init();
 
-#define MAX_CHARS_PER_LINE 49
-#define DEFAULT_FONT BAGL_FONT_OPEN_SANS_LIGHT_16px | BAGL_FONT_ALIGNMENT_LEFT
-#define TEXT_HEIGHT 15
-#define TEXT_SPACE 4
-
-#define COLOR_WAVES 0x0055FF
-#define COLOR_WHITE 0xF9F9F9
-
-#define QUANTS_PER_BURST 100000000
 #endif
