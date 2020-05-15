@@ -60,3 +60,6 @@ debug/
 env/
 
 .env
+
+# Build folder
+bin/
