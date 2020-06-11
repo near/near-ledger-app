@@ -276,23 +276,29 @@ void menu_sign_init() {
     uint32_t actions_len = borsh_read_uint32(&processed);
     PRINTF("actions_len: %d\n", actions_len);
 
+    if (actions_len != 1) {
+        COPY_LITERAL(ui_context.line1, "multiple actions");
+        DISPLAY_VERIFY_UI(ui_verify_transaction_nanos, 3, ui_verify_transaction_prepro);
+        return;
+    }
+
     // TODO: Parse more than one action
+
     // action type
     uint8_t action_type = borsh_read_uint8(&processed);
     PRINTF("action_type: %d\n", action_type);
 
     // TODO: assert action_type <= at_last_value
 
-    // transfer
-    if (action_type == at_transfer) {
+    switch (action_type) {
+    case at_transfer: {
         BORSH_DISPLAY_AMOUNT(amount, ui_context.line1);
 
         DISPLAY_VERIFY_UI(ui_verify_transfer_nanos, 4, ui_verify_transfer_prepro);
         return;
     }
 
-    // functionCall
-    if (action_type == at_function_call) {
+    case at_function_call: {
         // method name
         BORSH_DISPLAY_STRING(method_name, ui_context.line1);
 
@@ -318,8 +324,7 @@ void menu_sign_init() {
         return;
     }
 
-    // add key
-    if (action_type == at_add_key) {
+    case at_add_key: {
         // TODO: Assert that sender/receiver are the same?
 
         // public key
@@ -365,6 +370,42 @@ void menu_sign_init() {
             return;
         }
     }
+
+    case at_create_account: {
+        COPY_LITERAL(ui_context.line1, "create account");
+        // Use generic UI
+        break;
+    }
+
+    case at_deploy_contract: {
+        COPY_LITERAL(ui_context.line1, "deploy contract");
+        // Use generic UI
+        break;
+    }
+
+    case at_stake: {
+        COPY_LITERAL(ui_context.line1, "stake");
+        // Use generic UI
+        break;
+    }
+
+    case at_delete_key: {
+        COPY_LITERAL(ui_context.line1, "delete key");
+        // Use generic UI
+        break;
+    }
+
+    case at_delete_account: {
+        COPY_LITERAL(ui_context.line1, "delete account");
+        // Use generic UI
+        break;
+    }
+
+    default:
+        // TODO: Throw more specific error?
+        THROW(SW_CONDITIONS_NOT_SATISFIED);
+
+    } // switch
 
     PRINT_REMAINING_BUFFER();
 
