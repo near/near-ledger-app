@@ -160,7 +160,7 @@ int format_long_decimal_amount(size_t input_size, char *input, size_t output_siz
 
 void check_overflow(unsigned int processed, unsigned int size) {
     PRINTF("check_overflow %d %d %d\n", processed, size, tmp_ctx.signing_context.buffer_used);
-    if (size >= tmp_ctx.signing_context.buffer_used || processed + size >= tmp_ctx.signing_context.buffer_used) {
+    if (size > tmp_ctx.signing_context.buffer_used || processed + size > tmp_ctx.signing_context.buffer_used) {
         THROW(SW_BUFFER_OVERFLOW);
     }
 }
